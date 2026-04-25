@@ -82,14 +82,14 @@ LISTADO = '''
             </tr>
             {% for r in reparaciones %}
             <tr>
-                <td>{{ r[1] }}</a></td>
-                <td>{{ r[2] }}</a></td>
-                <td>{{ r[3] }}</a></td>
-                <td>{{ r[4] }} {{ r[5] }}</a></td>
-                <td>{{ r[6][:50] }}{% if r[6]|length > 50 %}...{% endif %}</a></td>
-                <td class="estado-{{ r[11] }}">{{ r[11] }}</a></td>
-                <td>{{ r[9][:10] if r[9] else '' }}</a></td>
-                <td>{{ r[10] if r[10] else '' }}</a></td>
+                <td>{{ r[1] }}</td>
+                <td>{{ r[2] }}</td>
+                <td>{{ r[3] }}</td>
+                <td>{{ r[4] }} {{ r[5] }}</td>
+                <td>{{ r[6][:50] }}{% if r[6]|length > 50 %}...{% endif %}</td>
+                <td class="estado-{{ r[11] }}">{{ r[11] }}</td>
+                <td>{{ r[9][:10] if r[9] else '' }}</td>
+                <td>{{ r[10] if r[10] else '' }}</td>
             </tr>
             {% endfor %}
         </table>
@@ -129,6 +129,8 @@ def nueva():
     if request.method == "POST":
         codigo = generar_codigo()
         ahora = datetime.datetime.now().isoformat()
+        
+        # Conectar a la base de datos
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
         cursor.execute('''
@@ -141,7 +143,7 @@ def nueva():
         conn.commit()
         conn.close()
         
-        mensaje = f"🆕 *Nueva reparación*\n📌 Código: {codigo}\n👤 Cliente: {request.form.get('cliente_nombre')}\n📞 Tel: {request.form.get('cliente_telefono')}\n🔧 Equipo: {request.form.get('equipo')} {request.form.get('marca')}\n⚠️ Falla: {request.form.get('falla')}"
+        mensaje = f"🆕 *Nueva reparación*\n📌 Código: {codigo}\n👤 Cliente: {request.form.get('cliente_nombre')}\n📞 Tel: {request.form.get('cliente_telefono')}\n🔧 Equipo: {request.form.get('equipo')} {request.form.get('marca')}"
         enviar_telegram(mensaje)
         return redirect(url_for('nueva'))
     return render_template_string(FORMULARIO)
@@ -156,7 +158,5 @@ def listado():
     return render_template_string(LISTADO, reparaciones=reparaciones)
 
 if __name__ == "__main__":
-    if not os.path.exists(DB_NAME):
-        import db
-        db.init_db()
-    app.run(host="0.0.0.0", port=5000, debug=False)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
