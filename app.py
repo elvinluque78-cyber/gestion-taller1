@@ -222,7 +222,7 @@ def nueva():
             mensaje_telegram += f"\n📸 Foto: {foto_url}"
         enviar_telegram(mensaje_telegram)
         
-        # Enviar WhatsApp al técnico (para reenvío manual)
+        # Enviar WhatsApp al técnico
         try:
             twilio_account_sid = os.environ.get("TWILIO_ACCOUNT_SID")
             twilio_auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
