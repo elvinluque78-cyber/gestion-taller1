@@ -5,8 +5,6 @@ import requests
 import os
 import re
 import json
-import cloudinary
-import cloudinary.uploader
 from twilio.rest import Client
 
 app = Flask(__name__)
@@ -34,7 +32,7 @@ FORMULARIO = '''
 <body>
     <div class="container">
         <h1>🔧 Nueva Reparación</h1>
-        <form method="POST" enctype="multipart/form-data">
+        <form method="POST">
             <input type="text" name="cliente_nombre" placeholder="Nombre del cliente" required>
             <input type="text" name="cliente_telefono" placeholder="Teléfono (ej: 04123697532)" required>
             <input type="text" name="equipo" placeholder="Equipo (ej: Lavadora)" required>
@@ -42,7 +40,6 @@ FORMULARIO = '''
             <textarea name="falla" placeholder="Falla o código de error" rows="3"></textarea>
             <input type="number" step="0.01" name="presupuesto" placeholder="Presupuesto (opcional)">
             <input type="text" name="tecnico" placeholder="Técnico">
-            <input type="file" name="foto" accept="image/*">
             <button type="submit">Guardar reparación</button>
         </form>
         <a href="/listado" class="btn">📋 Ver listado</a>
@@ -70,14 +67,12 @@ LISTADO = '''
         .estado-lista { color: green; font-weight: bold; }
         .btn { display: inline-block; background: #007bff; color: white; padding: 8px 15px; text-decoration: none; border-radius: 5px; margin: 10px 0; }
         .btn:hover { background: #0056b3; }
-        .foto-thumb { width: 50px; height: 50px; object-fit: cover; border-radius: 5px; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>📋 Listado de Reparaciones</h1>
         <a href="/" class="btn">➕ Nueva reparación</a>
-        <div style="overflow-x: auto;">
         <table>
             <tr>
                 <th>Código</th>
@@ -85,7 +80,6 @@ LISTADO = '''
                 <th>Teléfono</th>
                 <th>Equipo</th>
                 <th>Falla</th>
-                <th>Foto</th>
                 <th>Estado</th>
                 <th>Entrada</th>
                 <th>Técnico</th>
@@ -94,25 +88,15 @@ LISTADO = '''
             <tr>
                 <td>{{ r[1] }}</td>
                 <td>{{ r[2] }}</td>
-                <td>{{ r[3] }}</td>
+                <td>{{ r[3] }}</table>
                 <td>{{ r[4] }} {{ r[5] }}</td>
                 <td>{{ r[6][:50] }}{% if r[6]|length > 50 %}...{% endif %}</td>
-                <td>
-                    {% if r[13] %}
-                        <a href="{{ r[13] }}" target="_blank">
-                            <img src="{{ r[13] }}" class="foto-thumb" alt="Foto">
-                        </a>
-                    {% else %}
-                        -
-                    {% endif %}
-                </td>
                 <td class="estado-{{ r[11] }}">{{ r[11] }}</td>
                 <td>{{ r[9][:10] if r[9] else '' }}</td>
                 <td>{{ r[10] if r[10] else '' }}</td>
             </tr>
             {% endfor %}
         </table>
-        </div>
     </div>
 </body>
 </html>
@@ -165,39 +149,20 @@ def nueva():
         codigo = generar_codigo()
         ahora = datetime.datetime.now().isoformat()
         
-        # Subir foto a Cloudinary si existe
-        foto_url = None
-        if 'foto' in request.files:
-            foto = request.files['foto']
-            if foto and foto.filename != '':
-                try:
-                    cloudinary.config(
-                        cloud_name=os.environ.get("CLOUDINARY_CLOUD_NAME"),
-                        api_key=os.environ.get("CLOUDINARY_API_KEY"),
-                        api_secret=os.environ.get("CLOUDINARY_API_SECRET")
-                    )
-                    upload_result = cloudinary.uploader.upload(foto)
-                    foto_url = upload_result.get('secure_url')
-                    print(f"✅ Foto subida: {foto_url}")
-                except Exception as e:
-                    print(f"⚠️ Error al subir foto: {e}")
-        
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
         cursor.execute('''
-            INSERT INTO reparaciones (codigo, cliente_nombre, cliente_telefono, equipo, marca, falla, presupuesto, tecnico, fecha_entrada, estado, creado_en, actualizado_en, foto_url)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO reparaciones (codigo, cliente_nombre, cliente_telefono, equipo, marca, falla, presupuesto, tecnico, fecha_entrada, estado, creado_en, actualizado_en)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (codigo, request.form.get('cliente_nombre'), request.form.get('cliente_telefono'),
               request.form.get('equipo'), request.form.get('marca'), request.form.get('falla'),
               float(request.form.get('presupuesto')) if request.form.get('presupuesto') else None,
-              request.form.get('tecnico'), ahora, 'en_reparacion', ahora, ahora, foto_url))
+              request.form.get('tecnico'), ahora, 'en_reparacion', ahora, ahora))
         conn.commit()
         conn.close()
         
         # Enviar Telegram al técnico
         mensaje_telegram = f"🆕 *Nueva reparación*\n📌 Código: {codigo}\n👤 Cliente: {request.form.get('cliente_nombre')}\n📞 Tel: {request.form.get('cliente_telefono')}\n🔧 Equipo: {request.form.get('equipo')} {request.form.get('marca')}\n👨‍🔧 Técnico: {request.form.get('tecnico')}"
-        if foto_url:
-            mensaje_telegram += f"\n📸 Foto: {foto_url}"
         enviar_telegram(mensaje_telegram)
         
         # Enviar WhatsApp al cliente (por ahora, llega al técnico hasta que Twilio apruebe número propio)
@@ -217,31 +182,29 @@ def nueva():
                 if numero_limpio:
                     # Por ahora enviamos al técnico (tu número) para pruebas
                     tecnico_whatsapp = "whatsapp:+584123697532"
-                    cliente_whatsapp = f"whatsapp:+{numero_limpio}"
                     
                     print(f"DEBUG: Número original: {numero_original}")
                     print(f"DEBUG: Número limpio: {numero_limpio}")
                     print(f"DEBUG: WhatsApp técnico: {tecnico_whatsapp}")
-                    print(f"DEBUG: WhatsApp cliente (pendiente autorización): {cliente_whatsapp}")
                     
-                    # Preparar variables para la plantilla
-                    template_vars = {
-                        "1": codigo,
-                        "2": request.form.get('cliente_nombre'),
-                        "3": request.form.get('cliente_telefono'),
-                        "4": request.form.get('equipo'),
-                        "5": request.form.get('marca'),
-                        "6": request.form.get('falla'),
-                        "7": str(request.form.get('presupuesto')) if request.form.get('presupuesto') else "0",
-                        "8": ahora[:10] if ahora else ""
-                    }
-                    
-                    # Enviar usando plantilla (Content SID) al técnico
+                    # Preparar mensaje con todos los datos
+                    mensaje_whatsapp = f"""🧾 *Ticket de ingreso – Elvin Tech*
+📌 N° de ticket: *{codigo}*
+👤 Cliente: {request.form.get('cliente_nombre')}
+📞 Teléfono: {request.form.get('cliente_telefono')}
+🔧 Equipo: {request.form.get('equipo')} {request.form.get('marca')}
+⚠️ Falla: {request.form.get('falla')}
+💰 Presupuesto: {request.form.get('presupuesto')}
+📅 Fecha ingreso: {ahora[:10]}
+
+📞 *Contacto taller:* +58 412 3697532
+
+Gracias por confiar en nosotros."""
+
                     twilio_client.messages.create(
-                        content_sid="HX554723100053e24e57d467c74c07e731",
+                        body=mensaje_whatsapp,
                         from_=twilio_whatsapp_from,
-                        to=tecnico_whatsapp,
-                        content_variables=json.dumps(template_vars)
+                        to=tecnico_whatsapp
                     )
                     print(f"✅ WhatsApp enviado al técnico: {tecnico_whatsapp}")
                 else:
@@ -262,17 +225,6 @@ def listado():
     return render_template_string(LISTADO, reparaciones=reparaciones)
 
 if __name__ == "__main__":
-    # Crear columna foto_url si no existe
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    try:
-        cursor.execute("ALTER TABLE reparaciones ADD COLUMN foto_url TEXT")
-        conn.commit()
-        print("✅ Columna foto_url agregada")
-    except Exception as e:
-        print(f"⚠️ La columna foto_url ya existe o error: {e}")
-    conn.close()
-    
     if not os.path.exists(DB_NAME):
         import db
         db.init_db()
