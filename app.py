@@ -196,6 +196,8 @@ def nueva():
 
 *Guardá este número.* Podés consultar el estado de tu equipo con él.
 
+📞 *Contacto:* +58 412 3697532 (WhatsApp)
+
 Gracias por confiar en nosotros."""
 
                 twilio_client.messages.create(
