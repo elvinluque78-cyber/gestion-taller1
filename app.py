@@ -1,4 +1,4 @@
-kfrom flask import Flask, request, render_template_string, redirect, url_for
+from flask import Flask, request, render_template_string, redirect, url_for
 import sqlite3
 import datetime
 import requests
@@ -17,7 +17,7 @@ CLOUD_NAME = "drpmg1lso"
 API_KEY = "519922232242146"
 API_SECRET = "kxsPgE73Eu59VQ03qSCvWCeaHw4"
 
-# HTML para el formulario
+# HTML para el formulario (CON enctype)
 FORMULARIO = '''
 <!DOCTYPE html>
 <html>
@@ -28,7 +28,7 @@ FORMULARIO = '''
     <style>
         body { font-family: sans-serif; margin: 20px; background: #f0f2f5; }
         .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; }
-        input, textarea { display: block; margin: 10px 0; padding: 10px; width: 100%; max-width: 400px; border-radius: 5px; border: 1px solid #ccc; }
+        input, textarea, select { display: block; margin: 10px 0; padding: 10px; width: 100%; max-width: 400px; border-radius: 5px; border: 1px solid #ccc; }
         button { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
         button:hover { background: #0056b3; }
         h1 { color: #333; }
@@ -39,7 +39,7 @@ FORMULARIO = '''
 <body>
     <div class="container">
         <h1>🔧 Nueva Reparación</h1>
-        <form method="POST">
+        <form method="POST" enctype="multipart/form-data">
             <input type="text" name="cliente_nombre" placeholder="Nombre del cliente" required>
             <input type="text" name="cliente_telefono" placeholder="Teléfono (ej: 04123697532)" required>
             <input type="text" name="equipo" placeholder="Equipo (ej: Lavadora)" required>
@@ -295,5 +295,4 @@ if __name__ == "__main__":
     conn.close()
     
     port = int(os.environ.get("PORT", 8080))
-    app.run(host='0.0.0.0', port=port, debug=True)O
-
+    app.run(host='0.0.0.0', port=port, debug=True)
