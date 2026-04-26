@@ -12,7 +12,7 @@ from twilio.rest import Client
 app = Flask(__name__)
 DB_NAME = "taller.db"
 
-# Credenciales de Cloudinary (FORZADAS para prueba)
+# Credenciales de Cloudinary
 CLOUD_NAME = "drpmg1lso"
 API_KEY = "519922232242146"
 API_SECRET = "kxsPgE73Eu59VQ03qSCvWCeaHw4"
@@ -84,7 +84,7 @@ LISTADO = '''
         <h1>📋 Listado de Reparaciones</h1>
         <a href="/" class="btn">➕ Nueva reparación</a>
         <div style="overflow-x: auto;">
-        <table>
+        <tr>
             <tr>
                 <th>Código</th>
                 <th>Cliente</th>
@@ -172,10 +172,8 @@ def nueva():
         
         # Subir foto a Cloudinary
         foto_url = None
-        print(f"DEBUG: 'foto' in request.files = {'foto' in request.files}")
         if 'foto' in request.files:
             foto = request.files['foto']
-            print(f"DEBUG: foto.filename = {foto.filename}")
             if foto and foto.filename != '':
                 try:
                     cloudinary.config(
@@ -275,6 +273,18 @@ def listado():
     conn.close()
     return render_template_string(LISTADO, reparaciones=reparaciones)
 
+def agregar_columna_foto_url():
+    """Agrega la columna foto_url a la tabla si no existe"""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    try:
+        cursor.execute("ALTER TABLE reparaciones ADD COLUMN foto_url TEXT")
+        conn.commit()
+        print("✅ Columna foto_url agregada correctamente")
+    except Exception as e:
+        print(f"⚠️ La columna foto_url ya existe o error: {e}")
+    conn.close()
+
 if __name__ == "__main__":
     # Crear tabla si no existe
     conn = sqlite3.connect(DB_NAME)
@@ -301,6 +311,9 @@ if __name__ == "__main__":
     ''')
     conn.commit()
     conn.close()
+    
+    # Agregar columna foto_url por si acaso
+    agregar_columna_foto_url()
     
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port, debug=True)
