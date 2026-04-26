@@ -181,9 +181,10 @@ def nueva():
                 except Exception as e:
                     print(f"⚠️ Error al subir foto: {e}")
         
-        # Crear tabla si no existe (con columna foto_url)
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
+        
+        # Crear tabla con columna foto_url si no existe
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS reparaciones (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -215,13 +216,13 @@ def nueva():
         conn.commit()
         conn.close()
         
-        # Enviar Telegram
+        # Enviar Telegram al técnico
         mensaje_telegram = f"🆕 *Nueva reparación*\n📌 Código: {codigo}\n👤 Cliente: {request.form.get('cliente_nombre')}\n📞 Tel: {request.form.get('cliente_telefono')}\n🔧 Equipo: {request.form.get('equipo')} {request.form.get('marca')}\n👨‍🔧 Técnico: {request.form.get('tecnico')}"
         if foto_url:
             mensaje_telegram += f"\n📸 Foto: {foto_url}"
         enviar_telegram(mensaje_telegram)
         
-        # Enviar WhatsApp técnico
+        # Enviar WhatsApp al técnico (para reenvío manual)
         try:
             twilio_account_sid = os.environ.get("TWILIO_ACCOUNT_SID")
             twilio_auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
@@ -250,7 +251,7 @@ Gracias por confiar en nosotros."""
                     from_=twilio_whatsapp_from,
                     to=tecnico_whatsapp
                 )
-                print(f"✅ WhatsApp enviado")
+                print(f"✅ WhatsApp enviado al técnico")
         except Exception as e:
             print(f"⚠️ Error en WhatsApp: {e}")
         
