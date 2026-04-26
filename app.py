@@ -56,7 +56,7 @@ FORMULARIO = '''
 </html>
 '''
 
-# HTML para el listado
+# HTML para el listado (restaurado)
 LISTADO = '''
 <!DOCTYPE html>
 <html>
@@ -73,8 +73,8 @@ LISTADO = '''
         .estado-en_reparacion { color: orange; font-weight: bold; }
         .estado-espera_repuesto { color: red; font-weight: bold; }
         .estado-lista { color: green; font-weight: bold; }
-        .btn { display: inline-block; background: #007bff; color: white; padding: 8px 15px; text-decoration: none; border-radius: 5px; margin: 10px 0; }
-        .btn:hover { background: #0056b3; }
+        .btn { display: inline-block; background: #28a745; color: white; padding: 8px 15px; text-decoration: none; border-radius: 5px; margin: 10px 0; }
+        .btn:hover { background: #1e7e34; }
         .foto-thumb { width: 50px; height: 50px; object-fit: cover; border-radius: 5px; }
     </style>
 </head>
@@ -83,7 +83,7 @@ LISTADO = '''
         <h1>📋 Listado de Reparaciones</h1>
         <a href="/" class="btn">➕ Nueva reparación</a>
         <div style="overflow-x: auto;">
-        <td>
+        <table>
             <tr>
                 <th>Código</th>
                 <th>Cliente</th>
@@ -171,13 +171,10 @@ def nueva():
         
         # Subir foto a Cloudinary con credenciales forzadas
         foto_url = None
-        print(f"DEBUG: 'foto' in request.files = {'foto' in request.files}")
         if 'foto' in request.files:
             foto = request.files['foto']
-            print(f"DEBUG: foto.filename = {foto.filename}")
             if foto and foto.filename != '':
                 try:
-                    # Configurar Cloudinary con credenciales fijas
                     cloudinary.config(
                         cloud_name=CLOUD_NAME,
                         api_key=API_KEY,
@@ -188,10 +185,6 @@ def nueva():
                     print(f"✅ Foto subida: {foto_url}")
                 except Exception as e:
                     print(f"⚠️ Error al subir foto: {e}")
-            else:
-                print("DEBUG: foto vacía")
-        else:
-            print("DEBUG: No hay campo foto en la petición")
         
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
