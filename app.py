@@ -133,10 +133,10 @@ def limpiar_numero_telefono(numero):
         return None
     # Eliminar todo excepto dígitos
     numero_limpio = re.sub(r'\D', '', numero)
-    # Si tiene 10 dígitos (ej: 04123697532), agregar 58 al inicio
+    # Si tiene 11 dígitos y empieza con 0 (ej: 04123697532), lo formatea con 58
     if len(numero_limpio) == 11 and numero_limpio.startswith('0'):
         numero_limpio = '58' + numero_limpio[1:]
-    # Si tiene 10 dígitos sin cero inicial
+    # Si tiene 10 dígitos, agregar 58 al inicio
     elif len(numero_limpio) == 10:
         numero_limpio = '58' + numero_limpio
     # Si tiene 11 dígitos pero no empieza con 58
@@ -166,22 +166,26 @@ def nueva():
         mensaje_telegram = f"🆕 *Nueva reparación*\n📌 Código: {codigo}\n👤 Cliente: {request.form.get('cliente_nombre')}\n📞 Tel: {request.form.get('cliente_telefono')}\n🔧 Equipo: {request.form.get('equipo')} {request.form.get('marca')}\n👨‍🔧 Técnico: {request.form.get('tecnico')}"
         enviar_telegram(mensaje_telegram)
         
-        # Enviar WhatsApp al cliente
+        # Enviar WhatsApp al cliente (usando variables de entorno)
         try:
-            twilio_account_sid = "AC1eee15ecfd80fc2a2eadaaf00326ea0b"
-            twilio_auth_token = "9eb5cfe6e6db7c4f54f5324fc581ebed"
-            twilio_whatsapp_from = "whatsapp:+14155238886"
-            twilio_client = Client(twilio_account_sid, twilio_auth_token)
-
-            numero_original = request.form.get('cliente_telefono')
-            numero_limpio = limpiar_numero_telefono(numero_original)
-            cliente_whatsapp = f"whatsapp:+{numero_limpio}"
+            twilio_account_sid = os.environ.get("TWILIO_ACCOUNT_SID")
+            twilio_auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
+            twilio_whatsapp_from = os.environ.get("TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886")
             
-            print(f"DEBUG: Número original: {numero_original}")
-            print(f"DEBUG: Número limpio: {numero_limpio}")
-            print(f"DEBUG: WhatsApp final: {cliente_whatsapp}")
+            if not twilio_account_sid or not twilio_auth_token:
+                print("⚠️ Twilio no configurado: faltan variables de entorno")
+            else:
+                twilio_client = Client(twilio_account_sid, twilio_auth_token)
 
-            mensaje_whatsapp = f"""🧾 *Ticket de ingreso – Elvin Tech*
+                numero_original = request.form.get('cliente_telefono')
+                numero_limpio = limpiar_numero_telefono(numero_original)
+                cliente_whatsapp = f"whatsapp:+{numero_limpio}"
+                
+                print(f"DEBUG: Número original: {numero_original}")
+                print(f"DEBUG: Número limpio: {numero_limpio}")
+                print(f"DEBUG: WhatsApp final: {cliente_whatsapp}")
+
+                mensaje_whatsapp = f"""🧾 *Ticket de ingreso – Elvin Tech*
 📌 N° de ticket: *{codigo}*
 👤 Cliente: {request.form.get('cliente_nombre')}
 📞 Teléfono: {request.form.get('cliente_telefono')}
@@ -194,12 +198,12 @@ def nueva():
 
 Gracias por confiar en nosotros."""
 
-            twilio_client.messages.create(
-                body=mensaje_whatsapp,
-                from_=twilio_whatsapp_from,
-                to=cliente_whatsapp
-            )
-            print(f"✅ WhatsApp enviado a {cliente_whatsapp}")
+                twilio_client.messages.create(
+                    body=mensaje_whatsapp,
+                    from_=twilio_whatsapp_from,
+                    to=cliente_whatsapp
+                )
+                print(f"✅ WhatsApp enviado a {cliente_whatsapp}")
         except Exception as e:
             print(f"⚠️ Error al enviar WhatsApp: {e}")
         
