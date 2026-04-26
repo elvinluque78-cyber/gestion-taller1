@@ -12,6 +12,11 @@ from twilio.rest import Client
 app = Flask(__name__)
 DB_NAME = "taller.db"
 
+# Credenciales de Cloudinary (FORZADAS para prueba)
+CLOUD_NAME = "drpmg1lso"
+API_KEY = "519922232242146"
+API_SECRET = "kxsPgE73Eu59VQ03qSCvWCeaHw4"
+
 # HTML para el formulario
 FORMULARIO = '''
 <!DOCTYPE html>
@@ -78,7 +83,7 @@ LISTADO = '''
         <h1>📋 Listado de Reparaciones</h1>
         <a href="/" class="btn">➕ Nueva reparación</a>
         <div style="overflow-x: auto;">
-        <table>
+        <td>
             <tr>
                 <th>Código</th>
                 <th>Cliente</th>
@@ -164,7 +169,7 @@ def nueva():
         codigo = generar_codigo()
         ahora = datetime.datetime.now().isoformat()
         
-        # Subir foto a Cloudinary si existe (con logs detallados)
+        # Subir foto a Cloudinary con credenciales forzadas
         foto_url = None
         print(f"DEBUG: 'foto' in request.files = {'foto' in request.files}")
         if 'foto' in request.files:
@@ -172,24 +177,15 @@ def nueva():
             print(f"DEBUG: foto.filename = {foto.filename}")
             if foto and foto.filename != '':
                 try:
-                    cloud_name = os.environ.get("CLOUDINARY_CLOUD_NAME")
-                    api_key = os.environ.get("CLOUDINARY_API_KEY")
-                    api_secret = os.environ.get("CLOUDINARY_API_SECRET")
-                    print(f"DEBUG: cloud_name = {cloud_name}")
-                    print(f"DEBUG: api_key = {api_key}")
-                    print(f"DEBUG: api_secret = {api_secret[:5] if api_secret else 'None'}...")
-                    
-                    if not cloud_name or not api_key or not api_secret:
-                        print("⚠️ Error: Faltan variables de entorno de Cloudinary")
-                    else:
-                        cloudinary.config(
-                            cloud_name=cloud_name,
-                            api_key=api_key,
-                            api_secret=api_secret
-                        )
-                        upload_result = cloudinary.uploader.upload(foto)
-                        foto_url = upload_result.get('secure_url')
-                        print(f"✅ Foto subida: {foto_url}")
+                    # Configurar Cloudinary con credenciales fijas
+                    cloudinary.config(
+                        cloud_name=CLOUD_NAME,
+                        api_key=API_KEY,
+                        api_secret=API_SECRET
+                    )
+                    upload_result = cloudinary.uploader.upload(foto)
+                    foto_url = upload_result.get('secure_url')
+                    print(f"✅ Foto subida: {foto_url}")
                 except Exception as e:
                     print(f"⚠️ Error al subir foto: {e}")
             else:
