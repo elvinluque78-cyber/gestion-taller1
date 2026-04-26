@@ -56,7 +56,7 @@ FORMULARIO = '''
 </html>
 '''
 
-# HTML para el listado (CON FOTO EN MINIATURA)
+# HTML para el listado (sin foto, ordenado)
 LISTADO = '''
 <!DOCTYPE html>
 <html>
@@ -75,8 +75,6 @@ LISTADO = '''
         .estado-lista { color: green; font-weight: bold; }
         .btn { display: inline-block; background: #28a745; color: white; padding: 8px 15px; text-decoration: none; border-radius: 5px; margin: 10px 0; }
         .btn:hover { background: #1e7e34; }
-        .foto-thumb { width: 50px; height: 50px; object-fit: cover; border-radius: 5px; cursor: pointer; }
-        .foto-thumb:hover { transform: scale(1.1); }
     </style>
 </head>
 <body>
@@ -84,14 +82,13 @@ LISTADO = '''
         <h1>📋 Listado de Reparaciones</h1>
         <a href="/" class="btn">➕ Nueva reparación</a>
         <div style="overflow-x: auto;">
-        <tr>
+        <table>
             <tr>
                 <th>Código</th>
                 <th>Cliente</th>
                 <th>Teléfono</th>
                 <th>Equipo</th>
                 <th>Falla</th>
-                <th>Foto</th>
                 <th>Estado</th>
                 <th>Entrada</th>
                 <th>Técnico</th>
@@ -103,15 +100,6 @@ LISTADO = '''
                 <td>{{ r[3] }}</td>
                 <td>{{ r[4] }} {{ r[5] }}</td>
                 <td>{{ r[6][:50] }}{% if r[6]|length > 50 %}...{% endif %}</td>
-                <td>
-                    {% if r[13] %}
-                        <a href="{{ r[13] }}" target="_blank">
-                            <img src="{{ r[13] }}" class="foto-thumb" alt="Foto">
-                        </a>
-                    {% else %}
-                        <span style="color: gray;">Sin foto</span>
-                    {% endif %}
-                </td>
                 <td class="estado-{{ r[11] }}">{{ r[11] }}</td>
                 <td>{{ r[9][:10] if r[9] else '' }}</td>
                 <td>{{ r[10] if r[10] else '' }}</td>
@@ -273,18 +261,6 @@ def listado():
     conn.close()
     return render_template_string(LISTADO, reparaciones=reparaciones)
 
-def agregar_columna_foto_url():
-    """Agrega la columna foto_url a la tabla si no existe"""
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    try:
-        cursor.execute("ALTER TABLE reparaciones ADD COLUMN foto_url TEXT")
-        conn.commit()
-        print("✅ Columna foto_url agregada correctamente")
-    except Exception as e:
-        print(f"⚠️ La columna foto_url ya existe o error: {e}")
-    conn.close()
-
 if __name__ == "__main__":
     # Crear tabla si no existe
     conn = sqlite3.connect(DB_NAME)
@@ -311,9 +287,6 @@ if __name__ == "__main__":
     ''')
     conn.commit()
     conn.close()
-    
-    # Agregar columna foto_url por si acaso
-    agregar_columna_foto_url()
     
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port, debug=True)
