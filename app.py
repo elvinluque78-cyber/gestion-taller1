@@ -56,7 +56,7 @@ FORMULARIO = '''
 </html>
 '''
 
-# HTML para el listado (con botón Ver detalle)
+# HTML para el listado (con botón Ver foto)
 LISTADO = '''
 <!DOCTYPE html>
 <html>
@@ -96,7 +96,7 @@ LISTADO = '''
                     <th>Estado</th>
                     <th>Entrada</th>
                     <th>Técnico</th>
-                    <th>Acciones</th>
+                    <th>Foto</th>
                 </tr>
             </thead>
             <tbody>
@@ -111,56 +111,18 @@ LISTADO = '''
                     <td class="estado-{{ r[11] }}">{{ r[11] }}</td>
                     <td>{{ r[9][:10] if r[9] else '' }}</td>
                     <td>{{ r[10] if r[10] else '' }}</td>
-                    <td><a href="/detalle/{{ r[0] }}" class="btn btn-small">🔍 Ver detalle</a></td>
+                    <td>
+                        {% if r[13] %}
+                            <a href="/foto/{{ r[0] }}" target="_blank" class="btn btn-small">📷 Ver foto</a>
+                        {% else %}
+                            <span style="color: gray;">Sin foto</span>
+                        {% endif %}
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
         </div>
-    </div>
-</body>
-</html>
-'''
-
-# HTML para la página de detalle (con foto grande)
-DETALLE = '''
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Detalle de Reparación</title>
-    <style>
-        body { font-family: sans-serif; margin: 20px; background: #f0f2f5; }
-        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; }
-        .btn { display: inline-block; background: #007bff; color: white; padding: 8px 15px; text-decoration: none; border-radius: 5px; margin: 5px; }
-        .btn:hover { background: #0056b3; }
-        .foto { max-width: 100%; border-radius: 10px; margin-top: 20px; }
-        .datos p { margin: 8px 0; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>🔧 Detalle de Reparación</h1>
-        <div class="datos">
-            <p><strong>Código:</strong> {{ r[1] }}</p>
-            <p><strong>Cliente:</strong> {{ r[2] }}</p>
-            <p><strong>Teléfono:</strong> {{ r[3] }}</p>
-            <p><strong>Equipo:</strong> {{ r[4] }}</p>
-            <p><strong>Marca:</strong> {{ r[5] }}</p>
-            <p><strong>Falla:</strong> {{ r[6] }}</p>
-            <p><strong>Presupuesto:</strong> {{ r[7] }}</p>
-            <p><strong>Técnico:</strong> {{ r[8] }}</p>
-            <p><strong>Estado:</strong> {{ r[11] }}</p>
-            <p><strong>Fecha entrada:</strong> {{ r[9][:10] if r[9] else '' }}</p>
-            {% if r[13] %}
-                <p><strong>Foto:</strong></p>
-                <img src="{{ r[13] }}" class="foto" alt="Foto del equipo">
-            {% else %}
-                <p><strong>Foto:</strong> Sin foto</p>
-            {% endif %}
-        </div>
-        <a href="/listado" class="btn">← Volver al listado</a>
     </div>
 </body>
 </html>
@@ -315,18 +277,19 @@ def listado():
     conn.close()
     return render_template_string(LISTADO, reparaciones=reparaciones)
 
-@app.route("/detalle/<int:id>")
-def detalle(id):
+@app.route("/foto/<int:id>")
+def foto(id):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM reparaciones WHERE id = ?", (id,))
-    reparacion = cursor.fetchone()
+    cursor.execute("SELECT foto_url FROM reparaciones WHERE id = ?", (id,))
+    resultado = cursor.fetchone()
     conn.close()
     
-    if reparacion is None:
-        return "Reparación no encontrada", 404
-    
-    return render_template_string(DETALLE, r=reparacion)
+    if resultado and resultado[0]:
+        foto_url = resultado[0]
+        return f'<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Foto</title><style>body {{ display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: #f0f2f5; }} img {{ max-width: 100%; max-height: 100vh; }}</style></head><body><img src="{foto_url}" alt="Foto del equipo"></body></html>'
+    else:
+        return "Sin foto", 404
 
 if __name__ == "__main__":
     # Crear tabla si no existe
