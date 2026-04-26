@@ -1,14 +1,21 @@
-from flask import Flask, request, render_template_string, redirect, url_for
+kfrom flask import Flask, request, render_template_string, redirect, url_for
 import sqlite3
 import datetime
 import requests
 import os
 import re
 import json
+import cloudinary
+import cloudinary.uploader
 from twilio.rest import Client
 
 app = Flask(__name__)
 DB_NAME = "taller.db"
+
+# Credenciales de Cloudinary
+CLOUD_NAME = "drpmg1lso"
+API_KEY = "519922232242146"
+API_SECRET = "kxsPgE73Eu59VQ03qSCvWCeaHw4"
 
 # HTML para el formulario
 FORMULARIO = '''
@@ -40,6 +47,7 @@ FORMULARIO = '''
             <textarea name="falla" placeholder="Falla o código de error" rows="3"></textarea>
             <input type="number" step="0.01" name="presupuesto" placeholder="Presupuesto (opcional)">
             <input type="text" name="tecnico" placeholder="Técnico">
+            <input type="file" name="foto" accept="image/*">
             <button type="submit">Guardar reparación</button>
         </form>
         <a href="/listado" class="btn">📋 Ver listado</a>
@@ -48,7 +56,7 @@ FORMULARIO = '''
 </html>
 '''
 
-# HTML para el listado
+# HTML para el listado (sin foto, ordenado)
 LISTADO = '''
 <!DOCTYPE html>
 <html>
@@ -65,38 +73,46 @@ LISTADO = '''
         .estado-en_reparacion { color: orange; font-weight: bold; }
         .estado-espera_repuesto { color: red; font-weight: bold; }
         .estado-lista { color: green; font-weight: bold; }
-        .btn { display: inline-block; background: #007bff; color: white; padding: 8px 15px; text-decoration: none; border-radius: 5px; margin: 10px 0; }
-        .btn:hover { background: #0056b3; }
+        .btn { display: inline-block; background: #28a745; color: white; padding: 8px 15px; text-decoration: none; border-radius: 5px; margin: 10px 0; }
+        .btn:hover { background: #1e7e34; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>📋 Listado de Reparaciones</h1>
         <a href="/" class="btn">➕ Nueva reparación</a>
+        <div style="overflow-x: auto;">
         <table>
-            <tr>
-                <th>Código</th>
-                <th>Cliente</th>
-                <th>Teléfono</th>
-                <th>Equipo</th>
-                <th>Falla</th>
-                <th>Estado</th>
-                <th>Entrada</th>
-                <th>Técnico</th>
-            </tr>
-            {% for r in reparaciones %}
-            <tr>
-                <td>{{ r[1] }}</td>
-                <td>{{ r[2] }}</td>
-                <td>{{ r[3] }}</td>
-                <td>{{ r[4] }} {{ r[5] }}</td>
-                <td>{{ r[6][:50] }}{% if r[6]|length > 50 %}...{% endif %}</td>
-                <td class="estado-{{ r[11] }}">{{ r[11] }}</td>
-                <td>{{ r[9][:10] if r[9] else '' }}</td>
-                <td>{{ r[10] if r[10] else '' }}</td>
-            </tr>
-            {% endfor %}
+            <thead>
+                <tr>
+                    <th>Código</th>
+                    <th>Cliente</th>
+                    <th>Teléfono</th>
+                    <th>Equipo</th>
+                    <th>Marca</th>
+                    <th>Falla</th>
+                    <th>Estado</th>
+                    <th>Entrada</th>
+                    <th>Técnico</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in reparaciones %}
+                <tr>
+                    <td>{{ r[1] }}</td>
+                    <td>{{ r[2] }}</td>
+                    <td>{{ r[3] }}</td>
+                    <td>{{ r[4] }}</td>
+                    <td>{{ r[5] }}</td>
+                    <td>{{ r[6][:50] }}{% if r[6]|length > 50 %}...{% endif %}</td>
+                    <td class="estado-{{ r[11] }}">{{ r[11] }}</td>
+                    <td>{{ r[9][:10] if r[9] else '' }}</td>
+                    <td>{{ r[10] if r[10] else '' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
         </table>
+        </div>
     </div>
 </body>
 </html>
@@ -129,7 +145,6 @@ def generar_codigo():
     return f"E-{num:03d}"
 
 def limpiar_numero_telefono(numero):
-    """Limpia el número de teléfono: elimina espacios, guiones, +, y deja solo dígitos."""
     if not numero:
         return None
     numero_limpio = re.sub(r'\D', '', numero)
@@ -149,57 +164,96 @@ def nueva():
         codigo = generar_codigo()
         ahora = datetime.datetime.now().isoformat()
         
+        # Subir foto a Cloudinary
+        foto_url = None
+        if 'foto' in request.files:
+            foto = request.files['foto']
+            if foto and foto.filename != '':
+                try:
+                    cloudinary.config(
+                        cloud_name=CLOUD_NAME,
+                        api_key=API_KEY,
+                        api_secret=API_SECRET
+                    )
+                    upload_result = cloudinary.uploader.upload(foto)
+                    foto_url = upload_result.get('secure_url')
+                    print(f"✅ Foto subida: {foto_url}")
+                except Exception as e:
+                    print(f"⚠️ Error al subir foto: {e}")
+        
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
+        
+        # Crear tabla si no existe
         cursor.execute('''
-            INSERT INTO reparaciones (codigo, cliente_nombre, cliente_telefono, equipo, marca, falla, presupuesto, tecnico, fecha_entrada, estado, creado_en, actualizado_en)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            CREATE TABLE IF NOT EXISTS reparaciones (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                codigo TEXT UNIQUE NOT NULL,
+                cliente_nombre TEXT NOT NULL,
+                cliente_telefono TEXT NOT NULL,
+                equipo TEXT NOT NULL,
+                marca TEXT,
+                falla TEXT,
+                presupuesto REAL,
+                tecnico TEXT,
+                fecha_entrada TEXT NOT NULL,
+                fecha_salida TEXT,
+                estado TEXT NOT NULL,
+                notificado_24h INTEGER DEFAULT 0,
+                creado_en TEXT NOT NULL,
+                actualizado_en TEXT NOT NULL,
+                foto_url TEXT
+            )
+        ''')
+        
+        cursor.execute('''
+            INSERT INTO reparaciones (codigo, cliente_nombre, cliente_telefono, equipo, marca, falla, presupuesto, tecnico, fecha_entrada, estado, creado_en, actualizado_en, foto_url)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (codigo, request.form.get('cliente_nombre'), request.form.get('cliente_telefono'),
               request.form.get('equipo'), request.form.get('marca'), request.form.get('falla'),
               float(request.form.get('presupuesto')) if request.form.get('presupuesto') else None,
-              request.form.get('tecnico'), ahora, 'en_reparacion', ahora, ahora))
+              request.form.get('tecnico'), ahora, 'en_reparacion', ahora, ahora, foto_url))
         conn.commit()
         conn.close()
         
-        # Enviar Telegram al técnico
+        # Enviar Telegram
         mensaje_telegram = f"🆕 *Nueva reparación*\n📌 Código: {codigo}\n👤 Cliente: {request.form.get('cliente_nombre')}\n📞 Tel: {request.form.get('cliente_telefono')}\n🔧 Equipo: {request.form.get('equipo')} {request.form.get('marca')}\n👨‍🔧 Técnico: {request.form.get('tecnico')}"
+        if foto_url:
+            mensaje_telegram += f"\n📸 Foto: {foto_url}"
         enviar_telegram(mensaje_telegram)
         
-        # Enviar WhatsApp al técnico (para reenvío manual)
+        # Enviar WhatsApp al técnico
         try:
             twilio_account_sid = os.environ.get("TWILIO_ACCOUNT_SID")
             twilio_auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
             twilio_whatsapp_from = os.environ.get("TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886")
             
-            if not twilio_account_sid or not twilio_auth_token:
-                print("⚠️ Twilio no configurado: faltan variables de entorno")
-            else:
+            if twilio_account_sid and twilio_auth_token:
                 twilio_client = Client(twilio_account_sid, twilio_auth_token)
-
-                # Número del técnico (tu número)
                 tecnico_whatsapp = "whatsapp:+584123697532"
                 
-                print(f"DEBUG: Enviando WhatsApp al técnico: {tecnico_whatsapp}")
+                mensaje_whatsapp = f"""🧾 *Ticket de ingreso – Elvin Tech*
+📌 N° de ticket: *{codigo}*
+👤 Cliente: {request.form.get('cliente_nombre')}
+📞 Teléfono: {request.form.get('cliente_telefono')}
+🔧 Equipo: {request.form.get('equipo')} {request.form.get('marca')}
+⚠️ Falla: {request.form.get('falla')}
+💰 Presupuesto: {request.form.get('presupuesto')}
+📅 Fecha ingreso: {ahora[:10]}
+📸 Foto: {foto_url if foto_url else 'Sin foto'}
+
+📞 Contacto taller: +58 412 3697532
+
+Gracias por confiar en nosotros."""
                 
-                # Enviar usando plantilla (Content SID)
                 twilio_client.messages.create(
-                    content_sid="HX554723100053e24e57d467c74c07e731",
+                    body=mensaje_whatsapp,
                     from_=twilio_whatsapp_from,
-                    to=tecnico_whatsapp,
-                    content_variables=json.dumps({
-                        "1": codigo,
-                        "2": request.form.get('cliente_nombre'),
-                        "3": request.form.get('cliente_telefono'),
-                        "4": request.form.get('equipo'),
-                        "5": request.form.get('marca'),
-                        "6": request.form.get('falla'),
-                        "7": str(request.form.get('presupuesto')) if request.form.get('presupuesto') else "0",
-                        "8": ahora[:10] if ahora else ""
-                    })
+                    to=tecnico_whatsapp
                 )
-                print(f"✅ WhatsApp enviado al técnico: {tecnico_whatsapp}")
+                print(f"✅ WhatsApp enviado al técnico")
         except Exception as e:
-            print(f"⚠️ Error al enviar WhatsApp: {e}")
+            print(f"⚠️ Error en WhatsApp: {e}")
         
         return redirect(url_for('nueva'))
     return render_template_string(FORMULARIO)
@@ -214,8 +268,32 @@ def listado():
     return render_template_string(LISTADO, reparaciones=reparaciones)
 
 if __name__ == "__main__":
-    if not os.path.exists(DB_NAME):
-        import db
-        db.init_db()
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)
+    # Crear tabla si no existe
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS reparaciones (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            codigo TEXT UNIQUE NOT NULL,
+            cliente_nombre TEXT NOT NULL,
+            cliente_telefono TEXT NOT NULL,
+            equipo TEXT NOT NULL,
+            marca TEXT,
+            falla TEXT,
+            presupuesto REAL,
+            tecnico TEXT,
+            fecha_entrada TEXT NOT NULL,
+            fecha_salida TEXT,
+            estado TEXT NOT NULL,
+            notificado_24h INTEGER DEFAULT 0,
+            creado_en TEXT NOT NULL,
+            actualizado_en TEXT NOT NULL,
+            foto_url TEXT
+        )
+    ''')
+    conn.commit()
+    conn.close()
+    
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port, debug=True)O
+
