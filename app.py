@@ -186,6 +186,10 @@ def nueva():
                 except Exception as e:
                     print(f"⚠️ Error al subir foto: {e}")
         
+        print(f"DEBUG: foto_url = {foto_url}")
+        print(f"DEBUG: codigo = {codigo}")
+        print(f"DEBUG: cliente_nombre = {request.form.get('cliente_nombre')}")
+        
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
         
