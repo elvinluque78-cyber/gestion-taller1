@@ -4,6 +4,7 @@ import datetime
 import requests
 import os
 import re
+import json
 from twilio.rest import Client
 
 app = Flask(__name__)
@@ -131,15 +132,11 @@ def limpiar_numero_telefono(numero):
     """Limpia el número de teléfono: elimina espacios, guiones, +, y deja solo dígitos."""
     if not numero:
         return None
-    # Eliminar todo excepto dígitos
     numero_limpio = re.sub(r'\D', '', numero)
-    # Si tiene 11 dígitos y empieza con 0 (ej: 04123697532), lo formatea con 58
     if len(numero_limpio) == 11 and numero_limpio.startswith('0'):
         numero_limpio = '58' + numero_limpio[1:]
-    # Si tiene 10 dígitos, agregar 58 al inicio
     elif len(numero_limpio) == 10:
         numero_limpio = '58' + numero_limpio
-    # Si tiene 11 dígitos pero no empieza con 58
     elif len(numero_limpio) == 11 and not numero_limpio.startswith('58'):
         numero_limpio = '58' + numero_limpio
     return numero_limpio
@@ -166,7 +163,7 @@ def nueva():
         mensaje_telegram = f"🆕 *Nueva reparación*\n📌 Código: {codigo}\n👤 Cliente: {request.form.get('cliente_nombre')}\n📞 Tel: {request.form.get('cliente_telefono')}\n🔧 Equipo: {request.form.get('equipo')} {request.form.get('marca')}\n👨‍🔧 Técnico: {request.form.get('tecnico')}"
         enviar_telegram(mensaje_telegram)
         
-        # Enviar WhatsApp al técnico (para que lo reenvíe manualmente al cliente)
+        # Enviar WhatsApp usando plantilla aprobada
         try:
             twilio_account_sid = os.environ.get("TWILIO_ACCOUNT_SID")
             twilio_auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
@@ -180,26 +177,23 @@ def nueva():
                 # Número del técnico (tu número)
                 tecnico_whatsapp = "whatsapp:+584123697532"
                 
-                # Preparar mensaje con todos los datos
-                mensaje_whatsapp = f"""🧾 *Ticket de ingreso – Elvin Tech*
-📌 N° de ticket: *{codigo}*
-👤 Cliente: {request.form.get('cliente_nombre')}
-📞 Teléfono: {request.form.get('cliente_telefono')}
-🔧 Equipo: {request.form.get('equipo')} {request.form.get('marca')}
-⚠️ Falla: {request.form.get('falla')}
-💰 Presupuesto: {request.form.get('presupuesto')}
-📅 Fecha ingreso: {ahora[:10]}
-
-📞 *Contacto taller:* +58 412 3697532
-
-Gracias por confiar en nosotros."""
-
+                # Enviar usando plantilla (Content SID)
                 twilio_client.messages.create(
-                    body=mensaje_whatsapp,
+                    content_sid="HX554723100053e24e57d467c74c07e731",
                     from_=twilio_whatsapp_from,
-                    to=tecnico_whatsapp
+                    to=tecnico_whatsapp,
+                    content_variables=json.dumps({
+                        "1": codigo,
+                        "2": request.form.get('cliente_nombre'),
+                        "3": request.form.get('cliente_telefono'),
+                        "4": request.form.get('equipo'),
+                        "5": request.form.get('marca'),
+                        "6": request.form.get('falla'),
+                        "7": str(request.form.get('presupuesto')) if request.form.get('presupuesto') else "0",
+                        "8": ahora[:10] if ahora else ""
+                    })
                 )
-                print(f"✅ WhatsApp enviado al técnico: {tecnico_whatsapp}")
+                print(f"✅ WhatsApp enviado al técnico usando plantilla")
         except Exception as e:
             print(f"⚠️ Error al enviar WhatsApp: {e}")
         
