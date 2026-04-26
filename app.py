@@ -132,16 +132,12 @@ def limpiar_numero_telefono(numero):
     """Limpia el número de teléfono: elimina espacios, guiones, +, y deja solo dígitos."""
     if not numero:
         return None
-    # Eliminar todo excepto dígitos
     numero_limpio = re.sub(r'\D', '', numero)
     
-    # Si empieza con 0, eliminar el 0 inicial y agregar 58 (código Venezuela)
     if numero_limpio.startswith('0'):
         numero_limpio = '58' + numero_limpio[1:]
-    # Si tiene 11 dígitos y no empieza con 58, asumir que es Venezuela
     elif len(numero_limpio) == 11 and not numero_limpio.startswith('58'):
         numero_limpio = '58' + numero_limpio
-    # Si tiene 10 dígitos, asumir que es Venezuela sin 0
     elif len(numero_limpio) == 10:
         numero_limpio = '58' + numero_limpio
     
@@ -169,7 +165,7 @@ def nueva():
         mensaje_telegram = f"🆕 *Nueva reparación*\n📌 Código: {codigo}\n👤 Cliente: {request.form.get('cliente_nombre')}\n📞 Tel: {request.form.get('cliente_telefono')}\n🔧 Equipo: {request.form.get('equipo')} {request.form.get('marca')}\n👨‍🔧 Técnico: {request.form.get('tecnico')}"
         enviar_telegram(mensaje_telegram)
         
-        # Enviar WhatsApp directamente al cliente usando plantilla aprobada
+        # Enviar WhatsApp al técnico (para reenvío manual)
         try:
             twilio_account_sid = os.environ.get("TWILIO_ACCOUNT_SID")
             twilio_auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
@@ -180,36 +176,28 @@ def nueva():
             else:
                 twilio_client = Client(twilio_account_sid, twilio_auth_token)
 
-                # Limpiar el número del cliente
-                numero_original = request.form.get('cliente_telefono')
-                numero_limpio = limpiar_numero_telefono(numero_original)
+                # Número del técnico (tu número)
+                tecnico_whatsapp = "whatsapp:+584123697532"
                 
-                if numero_limpio:
-                    cliente_whatsapp = f"whatsapp:+{numero_limpio}"
-                    
-                    print(f"DEBUG: Número original: {numero_original}")
-                    print(f"DEBUG: Número limpio: {numero_limpio}")
-                    print(f"DEBUG: WhatsApp final: {cliente_whatsapp}")
-                    
-                    # Enviar usando plantilla (Content SID)
-                    twilio_client.messages.create(
-                        content_sid="HX554723100053e24e57d467c74c07e731",
-                        from_=twilio_whatsapp_from,
-                        to=cliente_whatsapp,
-                        content_variables=json.dumps({
-                            "1": codigo,
-                            "2": request.form.get('cliente_nombre'),
-                            "3": request.form.get('cliente_telefono'),
-                            "4": request.form.get('equipo'),
-                            "5": request.form.get('marca'),
-                            "6": request.form.get('falla'),
-                            "7": str(request.form.get('presupuesto')) if request.form.get('presupuesto') else "0",
-                            "8": ahora[:10] if ahora else ""
-                        })
-                    )
-                    print(f"✅ WhatsApp enviado al cliente: {cliente_whatsapp}")
-                else:
-                    print("⚠️ No se pudo limpiar el número de teléfono")
+                print(f"DEBUG: Enviando WhatsApp al técnico: {tecnico_whatsapp}")
+                
+                # Enviar usando plantilla (Content SID)
+                twilio_client.messages.create(
+                    content_sid="HX554723100053e24e57d467c74c07e731",
+                    from_=twilio_whatsapp_from,
+                    to=tecnico_whatsapp,
+                    content_variables=json.dumps({
+                        "1": codigo,
+                        "2": request.form.get('cliente_nombre'),
+                        "3": request.form.get('cliente_telefono'),
+                        "4": request.form.get('equipo'),
+                        "5": request.form.get('marca'),
+                        "6": request.form.get('falla'),
+                        "7": str(request.form.get('presupuesto')) if request.form.get('presupuesto') else "0",
+                        "8": ahora[:10] if ahora else ""
+                    })
+                )
+                print(f"✅ WhatsApp enviado al técnico: {tecnico_whatsapp}")
         except Exception as e:
             print(f"⚠️ Error al enviar WhatsApp: {e}")
         
