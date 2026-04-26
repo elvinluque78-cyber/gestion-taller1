@@ -166,7 +166,7 @@ def nueva():
         mensaje_telegram = f"🆕 *Nueva reparación*\n📌 Código: {codigo}\n👤 Cliente: {request.form.get('cliente_nombre')}\n📞 Tel: {request.form.get('cliente_telefono')}\n🔧 Equipo: {request.form.get('equipo')} {request.form.get('marca')}\n👨‍🔧 Técnico: {request.form.get('tecnico')}"
         enviar_telegram(mensaje_telegram)
         
-        # Enviar WhatsApp al cliente (usando variables de entorno)
+        # Enviar WhatsApp al técnico (para que lo reenvíe manualmente al cliente)
         try:
             twilio_account_sid = os.environ.get("TWILIO_ACCOUNT_SID")
             twilio_auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
@@ -177,14 +177,10 @@ def nueva():
             else:
                 twilio_client = Client(twilio_account_sid, twilio_auth_token)
 
-                numero_original = request.form.get('cliente_telefono')
-                numero_limpio = limpiar_numero_telefono(numero_original)
-                cliente_whatsapp = f"whatsapp:+{numero_limpio}"
+                # Número del técnico (tu número)
+                tecnico_whatsapp = "whatsapp:+584123697532"
                 
-                print(f"DEBUG: Número original: {numero_original}")
-                print(f"DEBUG: Número limpio: {numero_limpio}")
-                print(f"DEBUG: WhatsApp final: {cliente_whatsapp}")
-
+                # Preparar mensaje con todos los datos
                 mensaje_whatsapp = f"""🧾 *Ticket de ingreso – Elvin Tech*
 📌 N° de ticket: *{codigo}*
 👤 Cliente: {request.form.get('cliente_nombre')}
@@ -194,18 +190,16 @@ def nueva():
 💰 Presupuesto: {request.form.get('presupuesto')}
 📅 Fecha ingreso: {ahora[:10]}
 
-*Guardá este número.* Podés consultar el estado de tu equipo con él.
-
-📞 *Contacto:* +58 412 3697532 (WhatsApp)
+📞 *Contacto taller:* +58 412 3697532
 
 Gracias por confiar en nosotros."""
 
                 twilio_client.messages.create(
                     body=mensaje_whatsapp,
                     from_=twilio_whatsapp_from,
-                    to=cliente_whatsapp
+                    to=tecnico_whatsapp
                 )
-                print(f"✅ WhatsApp enviado a {cliente_whatsapp}")
+                print(f"✅ WhatsApp enviado al técnico: {tecnico_whatsapp}")
         except Exception as e:
             print(f"⚠️ Error al enviar WhatsApp: {e}")
         
