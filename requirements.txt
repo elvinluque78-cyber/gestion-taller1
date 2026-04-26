@@ -3,3 +3,4 @@ requests
 gunicorn
 twilio==8.10.0
 cloudinary
+cloudinary
