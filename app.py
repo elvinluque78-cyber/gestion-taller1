@@ -93,7 +93,7 @@ LISTADO = '''
                 <td>{{ r[6][:50] }}{% if r[6]|length > 50 %}...{% endif %}</td>
                 <td class="estado-{{ r[11] }}">{{ r[11] }}</td>
                 <td>{{ r[9][:10] if r[9] else '' }}</td>
-                <td>{{ r[10] if r[10] else '' }}</td>
+                <tr>{{ r[10] if r[10] else '' }}</td>
             </tr>
             {% endfor %}
         </table>
@@ -163,7 +163,7 @@ def nueva():
         mensaje_telegram = f"🆕 *Nueva reparación*\n📌 Código: {codigo}\n👤 Cliente: {request.form.get('cliente_nombre')}\n📞 Tel: {request.form.get('cliente_telefono')}\n🔧 Equipo: {request.form.get('equipo')} {request.form.get('marca')}\n👨‍🔧 Técnico: {request.form.get('tecnico')}"
         enviar_telegram(mensaje_telegram)
         
-        # Enviar WhatsApp usando plantilla aprobada
+        # Enviar WhatsApp directamente al cliente usando plantilla aprobada
         try:
             twilio_account_sid = os.environ.get("TWILIO_ACCOUNT_SID")
             twilio_auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
@@ -174,14 +174,20 @@ def nueva():
             else:
                 twilio_client = Client(twilio_account_sid, twilio_auth_token)
 
-                # Número del técnico (tu número)
-                tecnico_whatsapp = "whatsapp:+584123697532"
+                # Limpiar el número del cliente
+                numero_original = request.form.get('cliente_telefono')
+                numero_limpio = limpiar_numero_telefono(numero_original)
+                cliente_whatsapp = f"whatsapp:+{numero_limpio}"
+                
+                print(f"DEBUG: Número original: {numero_original}")
+                print(f"DEBUG: Número limpio: {numero_limpio}")
+                print(f"DEBUG: WhatsApp final: {cliente_whatsapp}")
                 
                 # Enviar usando plantilla (Content SID)
                 twilio_client.messages.create(
                     content_sid="HX554723100053e24e57d467c74c07e731",
                     from_=twilio_whatsapp_from,
-                    to=tecnico_whatsapp,
+                    to=cliente_whatsapp,
                     content_variables=json.dumps({
                         "1": codigo,
                         "2": request.form.get('cliente_nombre'),
@@ -193,7 +199,7 @@ def nueva():
                         "8": ahora[:10] if ahora else ""
                     })
                 )
-                print(f"✅ WhatsApp enviado al técnico usando plantilla")
+                print(f"✅ WhatsApp enviado al cliente: {cliente_whatsapp}")
         except Exception as e:
             print(f"⚠️ Error al enviar WhatsApp: {e}")
         
