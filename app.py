@@ -17,7 +17,7 @@ CLOUD_NAME = "drpmg1lso"
 API_KEY = "519922232242146"
 API_SECRET = "kxsPgE73Eu59VQ03qSCvWCeaHw4"
 
-# HTML para el formulario (CON enctype)
+# HTML para el formulario
 FORMULARIO = '''
 <!DOCTYPE html>
 <html>
@@ -56,7 +56,7 @@ FORMULARIO = '''
 </html>
 '''
 
-# HTML para el listado (sin foto, ordenado)
+# HTML para el listado (con enlace "Ver foto")
 LISTADO = '''
 <!DOCTYPE html>
 <html>
@@ -75,6 +75,8 @@ LISTADO = '''
         .estado-lista { color: green; font-weight: bold; }
         .btn { display: inline-block; background: #28a745; color: white; padding: 8px 15px; text-decoration: none; border-radius: 5px; margin: 10px 0; }
         .btn:hover { background: #1e7e34; }
+        .foto-link { color: #007bff; text-decoration: none; }
+        .foto-link:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
@@ -91,6 +93,7 @@ LISTADO = '''
                     <th>Equipo</th>
                     <th>Marca</th>
                     <th>Falla</th>
+                    <th>Foto</th>
                     <th>Estado</th>
                     <th>Entrada</th>
                     <th>Técnico</th>
@@ -105,6 +108,13 @@ LISTADO = '''
                     <td>{{ r[4] }}</td>
                     <td>{{ r[5] }}</td>
                     <td>{{ r[6][:50] }}{% if r[6]|length > 50 %}...{% endif %}</td>
+                    <td>
+                        {% if r[13] %}
+                            <a href="{{ r[13] }}" target="_blank" class="foto-link">📷 Ver foto</a>
+                        {% else %}
+                            <span style="color: gray;">Sin foto</span>
+                        {% endif %}
+                    </td>
                     <td class="estado-{{ r[11] }}">{{ r[11] }}</td>
                     <td>{{ r[9][:10] if r[9] else '' }}</td>
                     <td>{{ r[10] if r[10] else '' }}</td>
