@@ -56,7 +56,7 @@ FORMULARIO = '''
 </html>
 '''
 
-# HTML para el listado (sin miniatura por ahora)
+# HTML para el listado (CON FOTO EN MINIATURA)
 LISTADO = '''
 <!DOCTYPE html>
 <html>
@@ -75,6 +75,8 @@ LISTADO = '''
         .estado-lista { color: green; font-weight: bold; }
         .btn { display: inline-block; background: #28a745; color: white; padding: 8px 15px; text-decoration: none; border-radius: 5px; margin: 10px 0; }
         .btn:hover { background: #1e7e34; }
+        .foto-thumb { width: 50px; height: 50px; object-fit: cover; border-radius: 5px; cursor: pointer; }
+        .foto-thumb:hover { transform: scale(1.1); }
     </style>
 </head>
 <body>
@@ -89,6 +91,7 @@ LISTADO = '''
                 <th>Teléfono</th>
                 <th>Equipo</th>
                 <th>Falla</th>
+                <th>Foto</th>
                 <th>Estado</th>
                 <th>Entrada</th>
                 <th>Técnico</th>
@@ -100,6 +103,15 @@ LISTADO = '''
                 <td>{{ r[3] }}</td>
                 <td>{{ r[4] }} {{ r[5] }}</td>
                 <td>{{ r[6][:50] }}{% if r[6]|length > 50 %}...{% endif %}</td>
+                <td>
+                    {% if r[13] %}
+                        <a href="{{ r[13] }}" target="_blank">
+                            <img src="{{ r[13] }}" class="foto-thumb" alt="Foto">
+                        </a>
+                    {% else %}
+                        <span style="color: gray;">Sin foto</span>
+                    {% endif %}
+                </td>
                 <td class="estado-{{ r[11] }}">{{ r[11] }}</td>
                 <td>{{ r[9][:10] if r[9] else '' }}</td>
                 <td>{{ r[10] if r[10] else '' }}</td>
@@ -160,8 +172,10 @@ def nueva():
         
         # Subir foto a Cloudinary
         foto_url = None
+        print(f"DEBUG: 'foto' in request.files = {'foto' in request.files}")
         if 'foto' in request.files:
             foto = request.files['foto']
+            print(f"DEBUG: foto.filename = {foto.filename}")
             if foto and foto.filename != '':
                 try:
                     cloudinary.config(
@@ -210,7 +224,7 @@ def nueva():
         conn.commit()
         conn.close()
         
-        # Enviar Telegram al técnico
+        # Enviar Telegram
         mensaje_telegram = f"🆕 *Nueva reparación*\n📌 Código: {codigo}\n👤 Cliente: {request.form.get('cliente_nombre')}\n📞 Tel: {request.form.get('cliente_telefono')}\n🔧 Equipo: {request.form.get('equipo')} {request.form.get('marca')}\n👨‍🔧 Técnico: {request.form.get('tecnico')}"
         if foto_url:
             mensaje_telegram += f"\n📸 Foto: {foto_url}"
