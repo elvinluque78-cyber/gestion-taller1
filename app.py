@@ -88,7 +88,7 @@ LISTADO = '''
             <tr>
                 <td>{{ r[1] }}</td>
                 <td>{{ r[2] }}</td>
-                <td>{{ r[3] }}</table>
+                <td>{{ r[3] }}</td>
                 <td>{{ r[4] }} {{ r[5] }}</td>
                 <td>{{ r[6][:50] }}{% if r[6]|length > 50 %}...{% endif %}</td>
                 <td class="estado-{{ r[11] }}">{{ r[11] }}</td>
@@ -129,7 +129,6 @@ def generar_codigo():
     return f"E-{num:03d}"
 
 def limpiar_numero_telefono(numero):
-    """Limpia el número de teléfono: elimina espacios, guiones, +, y deja solo dígitos."""
     if not numero:
         return None
     numero_limpio = re.sub(r'\D', '', numero)
@@ -165,7 +164,7 @@ def nueva():
         mensaje_telegram = f"🆕 *Nueva reparación*\n📌 Código: {codigo}\n👤 Cliente: {request.form.get('cliente_nombre')}\n📞 Tel: {request.form.get('cliente_telefono')}\n🔧 Equipo: {request.form.get('equipo')} {request.form.get('marca')}\n👨‍🔧 Técnico: {request.form.get('tecnico')}"
         enviar_telegram(mensaje_telegram)
         
-        # Enviar WhatsApp al cliente (por ahora, llega al técnico hasta que Twilio apruebe número propio)
+        # Enviar WhatsApp al técnico (para reenvío manual)
         try:
             twilio_account_sid = os.environ.get("TWILIO_ACCOUNT_SID")
             twilio_auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
@@ -180,14 +179,8 @@ def nueva():
                 numero_limpio = limpiar_numero_telefono(numero_original)
                 
                 if numero_limpio:
-                    # Por ahora enviamos al técnico (tu número) para pruebas
                     tecnico_whatsapp = "whatsapp:+584123697532"
                     
-                    print(f"DEBUG: Número original: {numero_original}")
-                    print(f"DEBUG: Número limpio: {numero_limpio}")
-                    print(f"DEBUG: WhatsApp técnico: {tecnico_whatsapp}")
-                    
-                    # Preparar mensaje con todos los datos
                     mensaje_whatsapp = f"""🧾 *Ticket de ingreso – Elvin Tech*
 📌 N° de ticket: *{codigo}*
 👤 Cliente: {request.form.get('cliente_nombre')}
@@ -229,4 +222,4 @@ if __name__ == "__main__":
         import db
         db.init_db()
     port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)
+    app.run(host='0.0.0.0', port=port, debug=True)
