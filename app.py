@@ -164,22 +164,38 @@ def nueva():
         codigo = generar_codigo()
         ahora = datetime.datetime.now().isoformat()
         
-        # Subir foto a Cloudinary si existe
+        # Subir foto a Cloudinary si existe (con logs detallados)
         foto_url = None
+        print(f"DEBUG: 'foto' in request.files = {'foto' in request.files}")
         if 'foto' in request.files:
             foto = request.files['foto']
+            print(f"DEBUG: foto.filename = {foto.filename}")
             if foto and foto.filename != '':
                 try:
-                    cloudinary.config(
-                        cloud_name=os.environ.get("CLOUDINARY_CLOUD_NAME"),
-                        api_key=os.environ.get("CLOUDINARY_API_KEY"),
-                        api_secret=os.environ.get("CLOUDINARY_API_SECRET")
-                    )
-                    upload_result = cloudinary.uploader.upload(foto)
-                    foto_url = upload_result.get('secure_url')
-                    print(f"✅ Foto subida: {foto_url}")
+                    cloud_name = os.environ.get("CLOUDINARY_CLOUD_NAME")
+                    api_key = os.environ.get("CLOUDINARY_API_KEY")
+                    api_secret = os.environ.get("CLOUDINARY_API_SECRET")
+                    print(f"DEBUG: cloud_name = {cloud_name}")
+                    print(f"DEBUG: api_key = {api_key}")
+                    print(f"DEBUG: api_secret = {api_secret[:5] if api_secret else 'None'}...")
+                    
+                    if not cloud_name or not api_key or not api_secret:
+                        print("⚠️ Error: Faltan variables de entorno de Cloudinary")
+                    else:
+                        cloudinary.config(
+                            cloud_name=cloud_name,
+                            api_key=api_key,
+                            api_secret=api_secret
+                        )
+                        upload_result = cloudinary.uploader.upload(foto)
+                        foto_url = upload_result.get('secure_url')
+                        print(f"✅ Foto subida: {foto_url}")
                 except Exception as e:
                     print(f"⚠️ Error al subir foto: {e}")
+            else:
+                print("DEBUG: foto vacía")
+        else:
+            print("DEBUG: No hay campo foto en la petición")
         
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
