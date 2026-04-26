@@ -5,7 +5,8 @@ import requests
 import os
 import re
 import json
-import traceback
+import cloudinary
+import cloudinary.uploader
 from twilio.rest import Client
 
 app = Flask(__name__)
@@ -22,7 +23,7 @@ FORMULARIO = '''
     <style>
         body { font-family: sans-serif; margin: 20px; background: #f0f2f5; }
         .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; }
-        input, textarea { display: block; margin: 10px 0; padding: 10px; width: 100%; max-width: 400px; border-radius: 5px; border: 1px solid #ccc; }
+        input, textarea, select { display: block; margin: 10px 0; padding: 10px; width: 100%; max-width: 400px; border-radius: 5px; border: 1px solid #ccc; }
         button { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
         button:hover { background: #0056b3; }
         h1 { color: #333; }
@@ -33,7 +34,7 @@ FORMULARIO = '''
 <body>
     <div class="container">
         <h1>🔧 Nueva Reparación</h1>
-        <form method="POST">
+        <form method="POST" enctype="multipart/form-data">
             <input type="text" name="cliente_nombre" placeholder="Nombre del cliente" required>
             <input type="text" name="cliente_telefono" placeholder="Teléfono (ej: 04123697532)" required>
             <input type="text" name="equipo" placeholder="Equipo (ej: Lavadora)" required>
@@ -41,6 +42,7 @@ FORMULARIO = '''
             <textarea name="falla" placeholder="Falla o código de error" rows="3"></textarea>
             <input type="number" step="0.01" name="presupuesto" placeholder="Presupuesto (opcional)">
             <input type="text" name="tecnico" placeholder="Técnico">
+            <input type="file" name="foto" accept="image/*">
             <button type="submit">Guardar reparación</button>
         </form>
         <a href="/listado" class="btn">📋 Ver listado</a>
@@ -68,12 +70,14 @@ LISTADO = '''
         .estado-lista { color: green; font-weight: bold; }
         .btn { display: inline-block; background: #007bff; color: white; padding: 8px 15px; text-decoration: none; border-radius: 5px; margin: 10px 0; }
         .btn:hover { background: #0056b3; }
+        .foto-thumb { width: 50px; height: 50px; object-fit: cover; border-radius: 5px; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>📋 Listado de Reparaciones</h1>
         <a href="/" class="btn">➕ Nueva reparación</a>
+        <div style="overflow-x: auto;">
         <table>
             <tr>
                 <th>Código</th>
@@ -81,6 +85,7 @@ LISTADO = '''
                 <th>Teléfono</th>
                 <th>Equipo</th>
                 <th>Falla</th>
+                <th>Foto</th>
                 <th>Estado</th>
                 <th>Entrada</th>
                 <th>Técnico</th>
@@ -92,12 +97,22 @@ LISTADO = '''
                 <td>{{ r[3] }}</td>
                 <td>{{ r[4] }} {{ r[5] }}</td>
                 <td>{{ r[6][:50] }}{% if r[6]|length > 50 %}...{% endif %}</td>
+                <td>
+                    {% if r[13] %}
+                        <a href="{{ r[13] }}" target="_blank">
+                            <img src="{{ r[13] }}" class="foto-thumb" alt="Foto">
+                        </a>
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
                 <td class="estado-{{ r[11] }}">{{ r[11] }}</td>
                 <td>{{ r[9][:10] if r[9] else '' }}</td>
                 <td>{{ r[10] if r[10] else '' }}</td>
             </tr>
             {% endfor %}
         </table>
+        </div>
     </div>
 </body>
 </html>
@@ -145,45 +160,78 @@ def limpiar_numero_telefono(numero):
 
 @app.route("/", methods=["GET", "POST"])
 def nueva():
-    try:
-        if request.method == "POST":
-            codigo = generar_codigo()
-            ahora = datetime.datetime.now().isoformat()
+    if request.method == "POST":
+        codigo = generar_codigo()
+        ahora = datetime.datetime.now().isoformat()
+        
+        # Subir foto a Cloudinary si existe
+        foto_url = None
+        if 'foto' in request.files:
+            foto = request.files['foto']
+            if foto and foto.filename != '':
+                try:
+                    cloudinary.config(
+                        cloud_name=os.environ.get("CLOUDINARY_CLOUD_NAME"),
+                        api_key=os.environ.get("CLOUDINARY_API_KEY"),
+                        api_secret=os.environ.get("CLOUDINARY_API_SECRET")
+                    )
+                    upload_result = cloudinary.uploader.upload(foto)
+                    foto_url = upload_result.get('secure_url')
+                    print(f"✅ Foto subida: {foto_url}")
+                except Exception as e:
+                    print(f"⚠️ Error al subir foto: {e}")
+        
+        # Crear tabla si no existe (con columna foto_url)
+        conn = sqlite3.connect(DB_NAME)
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS reparaciones (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                codigo TEXT UNIQUE NOT NULL,
+                cliente_nombre TEXT NOT NULL,
+                cliente_telefono TEXT NOT NULL,
+                equipo TEXT NOT NULL,
+                marca TEXT,
+                falla TEXT,
+                presupuesto REAL,
+                tecnico TEXT,
+                fecha_entrada TEXT NOT NULL,
+                fecha_salida TEXT,
+                estado TEXT NOT NULL,
+                notificado_24h INTEGER DEFAULT 0,
+                creado_en TEXT NOT NULL,
+                actualizado_en TEXT NOT NULL,
+                foto_url TEXT
+            )
+        ''')
+        
+        cursor.execute('''
+            INSERT INTO reparaciones (codigo, cliente_nombre, cliente_telefono, equipo, marca, falla, presupuesto, tecnico, fecha_entrada, estado, creado_en, actualizado_en, foto_url)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (codigo, request.form.get('cliente_nombre'), request.form.get('cliente_telefono'),
+              request.form.get('equipo'), request.form.get('marca'), request.form.get('falla'),
+              float(request.form.get('presupuesto')) if request.form.get('presupuesto') else None,
+              request.form.get('tecnico'), ahora, 'en_reparacion', ahora, ahora, foto_url))
+        conn.commit()
+        conn.close()
+        
+        # Enviar Telegram
+        mensaje_telegram = f"🆕 *Nueva reparación*\n📌 Código: {codigo}\n👤 Cliente: {request.form.get('cliente_nombre')}\n📞 Tel: {request.form.get('cliente_telefono')}\n🔧 Equipo: {request.form.get('equipo')} {request.form.get('marca')}\n👨‍🔧 Técnico: {request.form.get('tecnico')}"
+        if foto_url:
+            mensaje_telegram += f"\n📸 Foto: {foto_url}"
+        enviar_telegram(mensaje_telegram)
+        
+        # Enviar WhatsApp técnico
+        try:
+            twilio_account_sid = os.environ.get("TWILIO_ACCOUNT_SID")
+            twilio_auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
+            twilio_whatsapp_from = os.environ.get("TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886")
             
-            conn = sqlite3.connect(DB_NAME)
-            cursor = conn.cursor()
-            cursor.execute('''
-                INSERT INTO reparaciones (codigo, cliente_nombre, cliente_telefono, equipo, marca, falla, presupuesto, tecnico, fecha_entrada, estado, creado_en, actualizado_en)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (codigo, request.form.get('cliente_nombre'), request.form.get('cliente_telefono'),
-                  request.form.get('equipo'), request.form.get('marca'), request.form.get('falla'),
-                  float(request.form.get('presupuesto')) if request.form.get('presupuesto') else None,
-                  request.form.get('tecnico'), ahora, 'en_reparacion', ahora, ahora))
-            conn.commit()
-            conn.close()
-            
-            # Enviar Telegram al técnico
-            mensaje_telegram = f"🆕 *Nueva reparación*\n📌 Código: {codigo}\n👤 Cliente: {request.form.get('cliente_nombre')}\n📞 Tel: {request.form.get('cliente_telefono')}\n🔧 Equipo: {request.form.get('equipo')} {request.form.get('marca')}\n👨‍🔧 Técnico: {request.form.get('tecnico')}"
-            enviar_telegram(mensaje_telegram)
-            
-            # Enviar WhatsApp al técnico (para reenvío manual)
-            try:
-                twilio_account_sid = os.environ.get("TWILIO_ACCOUNT_SID")
-                twilio_auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
-                twilio_whatsapp_from = os.environ.get("TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886")
+            if twilio_account_sid and twilio_auth_token:
+                twilio_client = Client(twilio_account_sid, twilio_auth_token)
+                tecnico_whatsapp = "whatsapp:+584123697532"
                 
-                if not twilio_account_sid or not twilio_auth_token:
-                    print("⚠️ Twilio no configurado: faltan variables de entorno")
-                else:
-                    twilio_client = Client(twilio_account_sid, twilio_auth_token)
-
-                    numero_original = request.form.get('cliente_telefono')
-                    numero_limpio = limpiar_numero_telefono(numero_original)
-                    
-                    if numero_limpio:
-                        tecnico_whatsapp = "whatsapp:+584123697532"
-                        
-                        mensaje_whatsapp = f"""🧾 *Ticket de ingreso – Elvin Tech*
+                mensaje_whatsapp = f"""🧾 *Ticket de ingreso – Elvin Tech*
 📌 N° de ticket: *{codigo}*
 👤 Cliente: {request.form.get('cliente_nombre')}
 📞 Teléfono: {request.form.get('cliente_telefono')}
@@ -191,28 +239,23 @@ def nueva():
 ⚠️ Falla: {request.form.get('falla')}
 💰 Presupuesto: {request.form.get('presupuesto')}
 📅 Fecha ingreso: {ahora[:10]}
+📸 Foto: {foto_url if foto_url else 'Sin foto'}
 
-📞 *Contacto taller:* +58 412 3697532
+📞 Contacto taller: +58 412 3697532
 
 Gracias por confiar en nosotros."""
-
-                        twilio_client.messages.create(
-                            body=mensaje_whatsapp,
-                            from_=twilio_whatsapp_from,
-                            to=tecnico_whatsapp
-                        )
-                        print(f"✅ WhatsApp enviado al técnico: {tecnico_whatsapp}")
-                    else:
-                        print("⚠️ No se pudo limpiar el número de teléfono")
-            except Exception as e:
-                print(f"⚠️ Error al enviar WhatsApp: {e}")
-            
-            return redirect(url_for('nueva'))
-        return render_template_string(FORMULARIO)
-    except Exception as e:
-        error_detallado = traceback.format_exc()
-        print(error_detallado)
-        return f"<pre>Error: {e}\n\n{error_detallado}</pre>", 500
+                
+                twilio_client.messages.create(
+                    body=mensaje_whatsapp,
+                    from_=twilio_whatsapp_from,
+                    to=tecnico_whatsapp
+                )
+                print(f"✅ WhatsApp enviado")
+        except Exception as e:
+            print(f"⚠️ Error en WhatsApp: {e}")
+        
+        return redirect(url_for('nueva'))
+    return render_template_string(FORMULARIO)
 
 @app.route("/listado")
 def listado():
@@ -224,8 +267,5 @@ def listado():
     return render_template_string(LISTADO, reparaciones=reparaciones)
 
 if __name__ == "__main__":
-    if not os.path.exists(DB_NAME):
-        import db
-        db.init_db()
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port, debug=True)
