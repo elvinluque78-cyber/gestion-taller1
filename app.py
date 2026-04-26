@@ -5,6 +5,7 @@ import requests
 import os
 import re
 import json
+import traceback
 from twilio.rest import Client
 
 app = Flask(__name__)
@@ -144,44 +145,45 @@ def limpiar_numero_telefono(numero):
 
 @app.route("/", methods=["GET", "POST"])
 def nueva():
-    if request.method == "POST":
-        codigo = generar_codigo()
-        ahora = datetime.datetime.now().isoformat()
-        
-        conn = sqlite3.connect(DB_NAME)
-        cursor = conn.cursor()
-        cursor.execute('''
-            INSERT INTO reparaciones (codigo, cliente_nombre, cliente_telefono, equipo, marca, falla, presupuesto, tecnico, fecha_entrada, estado, creado_en, actualizado_en)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (codigo, request.form.get('cliente_nombre'), request.form.get('cliente_telefono'),
-              request.form.get('equipo'), request.form.get('marca'), request.form.get('falla'),
-              float(request.form.get('presupuesto')) if request.form.get('presupuesto') else None,
-              request.form.get('tecnico'), ahora, 'en_reparacion', ahora, ahora))
-        conn.commit()
-        conn.close()
-        
-        # Enviar Telegram al técnico
-        mensaje_telegram = f"🆕 *Nueva reparación*\n📌 Código: {codigo}\n👤 Cliente: {request.form.get('cliente_nombre')}\n📞 Tel: {request.form.get('cliente_telefono')}\n🔧 Equipo: {request.form.get('equipo')} {request.form.get('marca')}\n👨‍🔧 Técnico: {request.form.get('tecnico')}"
-        enviar_telegram(mensaje_telegram)
-        
-        # Enviar WhatsApp al técnico (para reenvío manual)
-        try:
-            twilio_account_sid = os.environ.get("TWILIO_ACCOUNT_SID")
-            twilio_auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
-            twilio_whatsapp_from = os.environ.get("TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886")
+    try:
+        if request.method == "POST":
+            codigo = generar_codigo()
+            ahora = datetime.datetime.now().isoformat()
             
-            if not twilio_account_sid or not twilio_auth_token:
-                print("⚠️ Twilio no configurado: faltan variables de entorno")
-            else:
-                twilio_client = Client(twilio_account_sid, twilio_auth_token)
-
-                numero_original = request.form.get('cliente_telefono')
-                numero_limpio = limpiar_numero_telefono(numero_original)
+            conn = sqlite3.connect(DB_NAME)
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO reparaciones (codigo, cliente_nombre, cliente_telefono, equipo, marca, falla, presupuesto, tecnico, fecha_entrada, estado, creado_en, actualizado_en)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (codigo, request.form.get('cliente_nombre'), request.form.get('cliente_telefono'),
+                  request.form.get('equipo'), request.form.get('marca'), request.form.get('falla'),
+                  float(request.form.get('presupuesto')) if request.form.get('presupuesto') else None,
+                  request.form.get('tecnico'), ahora, 'en_reparacion', ahora, ahora))
+            conn.commit()
+            conn.close()
+            
+            # Enviar Telegram al técnico
+            mensaje_telegram = f"🆕 *Nueva reparación*\n📌 Código: {codigo}\n👤 Cliente: {request.form.get('cliente_nombre')}\n📞 Tel: {request.form.get('cliente_telefono')}\n🔧 Equipo: {request.form.get('equipo')} {request.form.get('marca')}\n👨‍🔧 Técnico: {request.form.get('tecnico')}"
+            enviar_telegram(mensaje_telegram)
+            
+            # Enviar WhatsApp al técnico (para reenvío manual)
+            try:
+                twilio_account_sid = os.environ.get("TWILIO_ACCOUNT_SID")
+                twilio_auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
+                twilio_whatsapp_from = os.environ.get("TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886")
                 
-                if numero_limpio:
-                    tecnico_whatsapp = "whatsapp:+584123697532"
+                if not twilio_account_sid or not twilio_auth_token:
+                    print("⚠️ Twilio no configurado: faltan variables de entorno")
+                else:
+                    twilio_client = Client(twilio_account_sid, twilio_auth_token)
+
+                    numero_original = request.form.get('cliente_telefono')
+                    numero_limpio = limpiar_numero_telefono(numero_original)
                     
-                    mensaje_whatsapp = f"""🧾 *Ticket de ingreso – Elvin Tech*
+                    if numero_limpio:
+                        tecnico_whatsapp = "whatsapp:+584123697532"
+                        
+                        mensaje_whatsapp = f"""🧾 *Ticket de ingreso – Elvin Tech*
 📌 N° de ticket: *{codigo}*
 👤 Cliente: {request.form.get('cliente_nombre')}
 📞 Teléfono: {request.form.get('cliente_telefono')}
@@ -194,19 +196,23 @@ def nueva():
 
 Gracias por confiar en nosotros."""
 
-                    twilio_client.messages.create(
-                        body=mensaje_whatsapp,
-                        from_=twilio_whatsapp_from,
-                        to=tecnico_whatsapp
-                    )
-                    print(f"✅ WhatsApp enviado al técnico: {tecnico_whatsapp}")
-                else:
-                    print("⚠️ No se pudo limpiar el número de teléfono")
-        except Exception as e:
-            print(f"⚠️ Error al enviar WhatsApp: {e}")
-        
-        return redirect(url_for('nueva'))
-    return render_template_string(FORMULARIO)
+                        twilio_client.messages.create(
+                            body=mensaje_whatsapp,
+                            from_=twilio_whatsapp_from,
+                            to=tecnico_whatsapp
+                        )
+                        print(f"✅ WhatsApp enviado al técnico: {tecnico_whatsapp}")
+                    else:
+                        print("⚠️ No se pudo limpiar el número de teléfono")
+            except Exception as e:
+                print(f"⚠️ Error al enviar WhatsApp: {e}")
+            
+            return redirect(url_for('nueva'))
+        return render_template_string(FORMULARIO)
+    except Exception as e:
+        error_detallado = traceback.format_exc()
+        print(error_detallado)
+        return f"<pre>Error: {e}\n\n{error_detallado}</pre>", 500
 
 @app.route("/listado")
 def listado():
