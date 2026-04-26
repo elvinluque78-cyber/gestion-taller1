@@ -23,7 +23,7 @@ FORMULARIO = '''
     <style>
         body { font-family: sans-serif; margin: 20px; background: #f0f2f5; }
         .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; }
-        input, textarea, select { display: block; margin: 10px 0; padding: 10px; width: 100%; max-width: 400px; border-radius: 5px; border: 1px solid #ccc; }
+        input, textarea { display: block; margin: 10px 0; padding: 10px; width: 100%; max-width: 400px; border-radius: 5px; border: 1px solid #ccc; }
         button { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
         button:hover { background: #0056b3; }
         h1 { color: #333; }
@@ -200,7 +200,7 @@ def nueva():
             mensaje_telegram += f"\n📸 Foto: {foto_url}"
         enviar_telegram(mensaje_telegram)
         
-        # Enviar WhatsApp directamente al cliente usando plantilla aprobada
+        # Enviar WhatsApp al cliente (por ahora, llega al técnico hasta que Twilio apruebe número propio)
         try:
             twilio_account_sid = os.environ.get("TWILIO_ACCOUNT_SID")
             twilio_auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
@@ -215,11 +215,14 @@ def nueva():
                 numero_limpio = limpiar_numero_telefono(numero_original)
                 
                 if numero_limpio:
+                    # Por ahora enviamos al técnico (tu número) para pruebas
+                    tecnico_whatsapp = "whatsapp:+584123697532"
                     cliente_whatsapp = f"whatsapp:+{numero_limpio}"
                     
                     print(f"DEBUG: Número original: {numero_original}")
                     print(f"DEBUG: Número limpio: {numero_limpio}")
-                    print(f"DEBUG: WhatsApp final: {cliente_whatsapp}")
+                    print(f"DEBUG: WhatsApp técnico: {tecnico_whatsapp}")
+                    print(f"DEBUG: WhatsApp cliente (pendiente autorización): {cliente_whatsapp}")
                     
                     # Preparar variables para la plantilla
                     template_vars = {
@@ -233,14 +236,14 @@ def nueva():
                         "8": ahora[:10] if ahora else ""
                     }
                     
-                    # Enviar usando plantilla (Content SID)
+                    # Enviar usando plantilla (Content SID) al técnico
                     twilio_client.messages.create(
                         content_sid="HX554723100053e24e57d467c74c07e731",
                         from_=twilio_whatsapp_from,
-                        to=cliente_whatsapp,
+                        to=tecnico_whatsapp,
                         content_variables=json.dumps(template_vars)
                     )
-                    print(f"✅ WhatsApp enviado al cliente: {cliente_whatsapp}")
+                    print(f"✅ WhatsApp enviado al técnico: {tecnico_whatsapp}")
                 else:
                     print("⚠️ No se pudo limpiar el número de teléfono")
         except Exception as e:
@@ -259,14 +262,15 @@ def listado():
     return render_template_string(LISTADO, reparaciones=reparaciones)
 
 if __name__ == "__main__":
-    # Crear tabla con columna foto_url si no existe
+    # Crear columna foto_url si no existe
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     try:
         cursor.execute("ALTER TABLE reparaciones ADD COLUMN foto_url TEXT")
         conn.commit()
-    except:
-        pass  # La columna ya existe
+        print("✅ Columna foto_url agregada")
+    except Exception as e:
+        print(f"⚠️ La columna foto_url ya existe o error: {e}")
     conn.close()
     
     if not os.path.exists(DB_NAME):
