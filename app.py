@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template_string, redirect, url_for
+kfrom flask import Flask, request, render_template_string, redirect, url_for
 import sqlite3
 import datetime
 import requests
@@ -56,7 +56,7 @@ FORMULARIO = '''
 </html>
 '''
 
-# HTML para el listado (sin foto, ordenado)
+# HTML para el listado (CORREGIDO - CON COLUMNAS Y FOTO)
 LISTADO = '''
 <!DOCTYPE html>
 <html>
@@ -68,13 +68,16 @@ LISTADO = '''
         body { font-family: sans-serif; margin: 20px; background: #f0f2f5; }
         .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; }
         table { border-collapse: collapse; width: 100%; }
-        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
         th { background: #007bff; color: white; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
         .estado-en_reparacion { color: orange; font-weight: bold; }
         .estado-espera_repuesto { color: red; font-weight: bold; }
         .estado-lista { color: green; font-weight: bold; }
         .btn { display: inline-block; background: #28a745; color: white; padding: 8px 15px; text-decoration: none; border-radius: 5px; margin: 10px 0; }
         .btn:hover { background: #1e7e34; }
+        .foto-thumb { width: 50px; height: 50px; object-fit: cover; border-radius: 5px; cursor: pointer; }
+        .foto-thumb:hover { transform: scale(1.1); }
     </style>
 </head>
 <body>
@@ -83,28 +86,44 @@ LISTADO = '''
         <a href="/" class="btn">➕ Nueva reparación</a>
         <div style="overflow-x: auto;">
         <table>
-            <tr>
-                <th>Código</th>
-                <th>Cliente</th>
-                <th>Teléfono</th>
-                <th>Equipo</th>
-                <th>Falla</th>
-                <th>Estado</th>
-                <th>Entrada</th>
-                <th>Técnico</th>
-            </tr>
-            {% for r in reparaciones %}
-            <tr>
-                <td>{{ r[1] }}</td>
-                <td>{{ r[2] }}</td>
-                <td>{{ r[3] }}</td>
-                <td>{{ r[4] }} {{ r[5] }}</td>
-                <td>{{ r[6][:50] }}{% if r[6]|length > 50 %}...{% endif %}</td>
-                <td class="estado-{{ r[11] }}">{{ r[11] }}</td>
-                <td>{{ r[9][:10] if r[9] else '' }}</td>
-                <td>{{ r[10] if r[10] else '' }}</td>
-            </tr>
-            {% endfor %}
+            <thead>
+                <tr>
+                    <th>Código</th>
+                    <th>Cliente</th>
+                    <th>Teléfono</th>
+                    <th>Equipo</th>
+                    <th>Marca</th>
+                    <th>Falla</th>
+                    <th>Foto</th>
+                    <th>Estado</th>
+                    <th>Entrada</th>
+                    <th>Técnico</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in reparaciones %}
+                <tr>
+                    <td>{{ r[1] }}</td>
+                    <td>{{ r[2] }}</td>
+                    <td>{{ r[3] }}</td>
+                    <td>{{ r[4] }}</td>
+                    <td>{{ r[5] }}</td>
+                    <td>{{ r[6][:50] }}{% if r[6]|length > 50 %}...{% endif %}</td>
+                    <td>
+                        {% if r[13] %}
+                            <a href="{{ r[13] }}" target="_blank">
+                                <img src="{{ r[13] }}" class="foto-thumb" alt="Foto">
+                            </a>
+                        {% else %}
+                            <span style="color: gray;">Sin foto</span>
+                        {% endif %}
+                    </td>
+                    <td class="estado-{{ r[11] }}">{{ r[11] }}</td>
+                    <td>{{ r[9][:10] if r[9] else '' }}</td>
+                    <td>{{ r[10] if r[10] else '' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
         </table>
         </div>
     </div>
