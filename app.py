@@ -1,5 +1,6 @@
 from flask import Flask, request, render_template_string, redirect, url_for
-import sqlite3
+import psycopg2
+import psycopg2.extras
 import datetime
 import requests
 import os
@@ -7,10 +8,45 @@ import re
 import json
 import cloudinary
 import cloudinary.uploader
+from urllib.parse import urlparse
 from twilio.rest import Client
 
 app = Flask(__name__)
-DB_NAME = "taller.db"
+
+# Configurar PostgreSQL desde Railway
+DATABASE_URL = os.environ.get("DATABASE_URL")
+if not DATABASE_URL:
+    raise Exception("DATABASE_URL no configurada en Railway")
+
+def get_db():
+    return psycopg2.connect(DATABASE_URL)
+
+def init_db():
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS reparaciones (
+            id SERIAL PRIMARY KEY,
+            codigo TEXT UNIQUE NOT NULL,
+            cliente_nombre TEXT NOT NULL,
+            cliente_telefono TEXT NOT NULL,
+            equipo TEXT NOT NULL,
+            marca TEXT,
+            falla TEXT,
+            presupuesto REAL,
+            tecnico TEXT,
+            fecha_entrada TEXT NOT NULL,
+            fecha_salida TEXT,
+            estado TEXT NOT NULL,
+            notificado_24h INTEGER DEFAULT 0,
+            creado_en TEXT NOT NULL,
+            actualizado_en TEXT NOT NULL,
+            foto_url TEXT
+        )
+    ''')
+    conn.commit()
+    conn.close()
+    print("✅ Base de datos PostgreSQL inicializada")
 
 # Credenciales de Cloudinary
 CLOUD_NAME = "drpmg1lso"
@@ -138,7 +174,7 @@ def enviar_telegram(mensaje):
         pass
 
 def generar_codigo():
-    conn = sqlite3.connect(DB_NAME)
+    conn = get_db()
     cursor = conn.cursor()
     cursor.execute("SELECT codigo FROM reparaciones ORDER BY id DESC LIMIT 1")
     ultimo = cursor.fetchone()
@@ -191,34 +227,11 @@ def nueva():
                 except Exception as e:
                     print(f"⚠️ Error al subir foto: {e}")
         
-        conn = sqlite3.connect(DB_NAME)
+        conn = get_db()
         cursor = conn.cursor()
-        
-        # Crear tabla si no existe
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS reparaciones (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                codigo TEXT UNIQUE NOT NULL,
-                cliente_nombre TEXT NOT NULL,
-                cliente_telefono TEXT NOT NULL,
-                equipo TEXT NOT NULL,
-                marca TEXT,
-                falla TEXT,
-                presupuesto REAL,
-                tecnico TEXT,
-                fecha_entrada TEXT NOT NULL,
-                fecha_salida TEXT,
-                estado TEXT NOT NULL,
-                notificado_24h INTEGER DEFAULT 0,
-                creado_en TEXT NOT NULL,
-                actualizado_en TEXT NOT NULL,
-                foto_url TEXT
-            )
-        ''')
-        
         cursor.execute('''
             INSERT INTO reparaciones (codigo, cliente_nombre, cliente_telefono, equipo, marca, falla, presupuesto, tecnico, fecha_entrada, estado, creado_en, actualizado_en, foto_url)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ''', (codigo, request.form.get('cliente_nombre'), request.form.get('cliente_telefono'),
               request.form.get('equipo'), request.form.get('marca'), request.form.get('falla'),
               float(request.form.get('presupuesto')) if request.form.get('presupuesto') else None,
@@ -270,7 +283,7 @@ Gracias por confiar en nosotros."""
 
 @app.route("/listado")
 def listado():
-    conn = sqlite3.connect(DB_NAME)
+    conn = get_db()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM reparaciones ORDER BY id DESC")
     reparaciones = cursor.fetchall()
@@ -279,9 +292,9 @@ def listado():
 
 @app.route("/foto/<int:id>")
 def foto(id):
-    conn = sqlite3.connect(DB_NAME)
+    conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT foto_url FROM reparaciones WHERE id = ?", (id,))
+    cursor.execute("SELECT foto_url FROM reparaciones WHERE id = %s", (id,))
     resultado = cursor.fetchone()
     conn.close()
     
@@ -292,31 +305,6 @@ def foto(id):
         return "Sin foto", 404
 
 if __name__ == "__main__":
-    # Crear tabla si no existe
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS reparaciones (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            codigo TEXT UNIQUE NOT NULL,
-            cliente_nombre TEXT NOT NULL,
-            cliente_telefono TEXT NOT NULL,
-            equipo TEXT NOT NULL,
-            marca TEXT,
-            falla TEXT,
-            presupuesto REAL,
-            tecnico TEXT,
-            fecha_entrada TEXT NOT NULL,
-            fecha_salida TEXT,
-            estado TEXT NOT NULL,
-            notificado_24h INTEGER DEFAULT 0,
-            creado_en TEXT NOT NULL,
-            actualizado_en TEXT NOT NULL,
-            foto_url TEXT
-        )
-    ''')
-    conn.commit()
-    conn.close()
-    
+    init_db()
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port, debug=True)

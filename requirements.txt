@@ -5,3 +5,4 @@ twilio==8.10.0
 cloudinary
 cloudinary
 cloudinary
+psycopg2-binary
