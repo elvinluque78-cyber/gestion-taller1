@@ -102,7 +102,7 @@ FORMULARIO = '''
 </html>
 '''
 
-# HTML para el listado (con botones Ver foto y Editar)
+# HTML para el listado (con técnico visible solo internamente)
 LISTADO = '''
 <!DOCTYPE html>
 <html>
@@ -151,7 +151,7 @@ LISTADO = '''
                     <th>Técnico</th>
                     <th>Foto</th>
                     <th>Acciones</th>
-                </tr>
+                <tr>
             </thead>
             <tbody>
                 {% for r in reparaciones %}
@@ -164,7 +164,7 @@ LISTADO = '''
                     <td>{{ r[6][:50] }}{% if r[6]|length > 50 %}...{% endif %}</td>
                     <td class="estado-{{ r[11] }}">{{ r[11] }}</td>
                     <td>{{ r[9][:10] if r[9] else '' }}</td>
-                    <td>{{ r[10] if r[10] else '' }}</td>
+                    <td>{{ r[8] if r[8] else '' }}</td>
                     <td>
                         {% if r[13] %}
                             <a href="/foto/{{ r[0] }}" target="_blank" class="btn-small">📷 Ver foto</a>
@@ -268,7 +268,7 @@ DASHBOARD = '''
             </thead>
             <tbody>
                 {% for t in tecnicos %}
-                <tr><td>{{ t[0] }}</td><td>{{ t[1] }}</td><td>${{ t[2] }}</td></tr>
+                <tr><td>{{ t[0] if t[0] else 'Sin asignar' }}</td><td>{{ t[1] }}</td><td>${{ t[2] }}</td></tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -353,13 +353,13 @@ def nueva():
         conn.commit()
         conn.close()
         
-        # Telegram
-        mensaje_telegram = f"🆕 *Nueva reparación*\n📌 Código: {codigo}\n👤 Cliente: {request.form.get('cliente_nombre')}\n📞 Tel: {request.form.get('cliente_telefono')}\n🔧 Equipo: {request.form.get('equipo')} {request.form.get('marca')}\n👨‍🔧 Técnico: {request.form.get('tecnico')}"
+        # Telegram (con técnico, interno)
+        mensaje_telegram = f"🆕 *Nueva reparación*\n📌 Código: {codigo}\n👤 Cliente: {request.form.get('cliente_nombre')}\n📞 Tel: {request.form.get('cliente_telefono')}\n🔧 Equipo: {request.form.get('equipo')} {request.form.get('marca')}\n⚠️ Falla: {request.form.get('falla')}\n💰 Presupuesto: {request.form.get('presupuesto')}\n👨‍🔧 Técnico: {request.form.get('tecnico')}"
         if foto_url:
             mensaje_telegram += f"\n📸 Foto: {foto_url}"
         enviar_telegram(mensaje_telegram)
         
-        # WhatsApp
+        # WhatsApp (sin técnico, solo para el cliente)
         try:
             twilio_account_sid = os.environ.get("TWILIO_ACCOUNT_SID")
             twilio_auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
