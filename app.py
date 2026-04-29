@@ -151,7 +151,7 @@ LISTADO = '''
                     <th>Técnico</th>
                     <th>Foto</th>
                     <th>Acciones</th>
-                <tr>
+                </tr>
             </thead>
             <tbody>
                 {% for r in reparaciones %}
@@ -285,6 +285,17 @@ def enviar_telegram(mensaje):
                       json={"chat_id": chat_id, "text": mensaje, "parse_mode": "Markdown"})
     except:
         pass
+
+def enviar_telegram_listo(codigo, cliente_nombre, equipo, marca):
+    token = "8742564082:AAGuvUN_q4NjBgUL70hcRsnCkwS-eumS6Sc"
+    chat_id = "7150902056"
+    mensaje = f"✅ *EQUIPO LISTO*\n📌 Código: {codigo}\n👤 Cliente: {cliente_nombre}\n🔧 Equipo: {equipo} {marca}\n\n🏁 El equipo está listo para ser entregado al cliente."
+    try:
+        requests.post(f"https://api.telegram.org/bot{token}/sendMessage", 
+                      json={"chat_id": chat_id, "text": mensaje, "parse_mode": "Markdown"})
+        print(f"📱 Telegram enviado: {codigo} marcado como LISTO")
+    except Exception as e:
+        print(f"⚠️ Error enviando Telegram LISTO: {e}")
 
 def generar_codigo():
     conn = get_db()
@@ -446,17 +457,74 @@ def foto(id):
 def consulta():
     if request.method == "POST":
         codigo = request.form.get("codigo", "").strip().upper()
+        accion = request.form.get("accion", "")
+        
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute("SELECT foto_url FROM reparaciones WHERE codigo = %s", (codigo,))
+        
+        # Si es acción de cambiar estado
+        if accion == "cambiar_estado":
+            # Primero obtenemos los datos del ticket antes de actualizar
+            cursor.execute("SELECT codigo, cliente_nombre, equipo, marca FROM reparaciones WHERE codigo = %s", (codigo,))
+            ticket = cursor.fetchone()
+            
+            if ticket:
+                cursor.execute("UPDATE reparaciones SET estado = 'lista', actualizado_en = %s WHERE codigo = %s AND estado = 'en_reparacion'", 
+                              (datetime.datetime.now().isoformat(), codigo))
+                conn.commit()
+                
+                # Enviar notificación por Telegram
+                enviar_telegram_listo(ticket[0], ticket[1], ticket[2], ticket[3])
+            
+            conn.close()
+            return '<h3>✅ Ticket marcado como LISTO</h3><a href="/consulta">Volver</a>'
+        
+        # Si es solo consulta de foto y estado
+        cursor.execute("SELECT id, codigo, estado, foto_url, cliente_nombre, equipo, marca FROM reparaciones WHERE codigo = %s", (codigo,))
         resultado = cursor.fetchone()
         conn.close()
         
-        if resultado and resultado[0]:
-            foto_url = resultado[0]
-            return f'<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Foto</title><style>body {{ display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: #f0f2f5; }} img {{ max-width: 100%; max-height: 100vh; }}</style></head><body><img src="{foto_url}" alt="Foto del equipo"></body></html>'
+        if resultado and resultado[3]:
+            foto_url = resultado[3]
+            estado = resultado[2]
+            mostrar_boton = (estado == 'en_reparacion')
+            
+            return f'''
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1">
+                <title>Ticket {codigo}</title>
+                <style>
+                    body {{ font-family: sans-serif; margin: 20px; background: #f0f2f5; text-align: center; }}
+                    .container {{ max-width: 500px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; }}
+                    img {{ max-width: 100%; border-radius: 10px; margin: 20px 0; }}
+                    .estado {{ font-size: 18px; margin: 10px 0; }}
+                    .estado-en_reparacion {{ color: orange; font-weight: bold; }}
+                    .estado-lista {{ color: green; font-weight: bold; }}
+                    button {{ background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }}
+                    button:hover {{ background: #0056b3; }}
+                    .btn {{ display: inline-block; background: #28a745; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 10px; }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h1>🔍 Ticket {codigo}</h1>
+                    <div class="estado">
+                        Estado actual: <span class="estado-{estado}">{estado.replace('_', ' ').upper()}</span>
+                    </div>
+                    <img src="{foto_url}" alt="Foto del equipo">
+                    {'<form method="POST"><input type="hidden" name="codigo" value="' + codigo + '"><input type="hidden" name="accion" value="cambiar_estado"><button type="submit">✅ Marcar como LISTO</button></form>' if mostrar_boton else '<p>✔️ Este equipo ya está listo para retirar</p>'}
+                    <br>
+                    <a href="/consulta" class="btn">← Consultar otro ticket</a>
+                </div>
+            </body>
+            </html>
+            '''
         else:
             return '<h3>❌ Código no encontrado</h3><a href="/consulta">Volver</a>', 404
+    
     return '''
     <!DOCTYPE html>
     <html>
@@ -477,7 +545,7 @@ def consulta():
             <h1>🔍 Consultar Ticket</h1>
             <form method="POST">
                 <input type="text" name="codigo" placeholder="Ej: E-001" required>
-                <button type="submit">Ver foto</button>
+                <button type="submit">Ver estado y foto</button>
             </form>
         </div>
     </body>
