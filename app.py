@@ -102,7 +102,7 @@ FORMULARIO = '''
 </html>
 '''
 
-# HTML para el listado (con botón Ver foto)
+# HTML para el listado (con botones Ver foto y Editar)
 LISTADO = '''
 <!DOCTYPE html>
 <html>
@@ -150,6 +150,7 @@ LISTADO = '''
                     <th>Entrada</th>
                     <th>Técnico</th>
                     <th>Foto</th>
+                    <th>Acciones</th>
                 </tr>
             </thead>
             <tbody>
@@ -171,11 +172,66 @@ LISTADO = '''
                             <span style="color: gray;">Sin foto</span>
                         {% endif %}
                     </td>
-                <tr>
+                    <td><a href="/editar/{{ r[0] }}" class="btn-small">✏️ Editar</a></td>
+                </tr>
                 {% endfor %}
             </tbody>
         </table>
         </div>
+    </div>
+</body>
+</html>
+'''
+
+# HTML para el formulario de edición
+EDITAR_FORMULARIO = '''
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Editar Reparación</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background: #f0f2f5; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; }
+        input, textarea, select { display: block; margin: 10px 0; padding: 10px; width: 100%; max-width: 400px; border-radius: 5px; border: 1px solid #ccc; }
+        button { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
+        button:hover { background: #0056b3; }
+        .btn { display: inline-block; background: #28a745; color: white; padding: 8px 15px; text-decoration: none; border-radius: 5px; margin-top: 20px; }
+        .btn:hover { background: #1e7e34; }
+        h1 { color: #333; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>✏️ Editar Reparación</h1>
+        <form method="POST">
+            <label>Código:</label>
+            <input type="text" value="{{ r[1] }}" disabled style="background: #e9ecef; width: 100%; padding: 10px; margin-bottom: 10px;">
+            <label>Cliente:</label>
+            <input type="text" value="{{ r[2] }}" disabled style="background: #e9ecef; width: 100%; padding: 10px; margin-bottom: 10px;">
+            <label>Teléfono:</label>
+            <input type="text" value="{{ r[3] }}" disabled style="background: #e9ecef; width: 100%; padding: 10px; margin-bottom: 10px;">
+            <label>Equipo:</label>
+            <input type="text" name="equipo" value="{{ r[4] }}" required style="width: 100%; padding: 10px; margin-bottom: 10px;">
+            <label>Marca:</label>
+            <input type="text" name="marca" value="{{ r[5] }}" style="width: 100%; padding: 10px; margin-bottom: 10px;">
+            <label>Falla:</label>
+            <textarea name="falla" rows="3" required style="width: 100%; padding: 10px; margin-bottom: 10px;">{{ r[6] }}</textarea>
+            <label>Presupuesto:</label>
+            <input type="number" step="0.01" name="presupuesto" value="{{ r[7] }}" style="width: 100%; padding: 10px; margin-bottom: 10px;">
+            <label>Técnico:</label>
+            <input type="text" name="tecnico" value="{{ r[8] }}" style="width: 100%; padding: 10px; margin-bottom: 10px;">
+            <label>Estado:</label>
+            <select name="estado" style="width: 100%; padding: 10px; margin-bottom: 10px;">
+                <option value="en_reparacion" {% if r[11] == 'en_reparacion' %}selected{% endif %}>En reparación</option>
+                <option value="espera_repuesto" {% if r[11] == 'espera_repuesto' %}selected{% endif %}>Espera repuesto</option>
+                <option value="lista" {% if r[11] == 'lista' %}selected{% endif %}>Listo</option>
+                <option value="entregado" {% if r[11] == 'entregado' %}selected{% endif %}>Entregado</option>
+            </select>
+            <button type="submit">💾 Guardar cambios</button>
+            <a href="/listado" class="btn">← Cancelar</a>
+        </form>
     </div>
 </body>
 </html>
@@ -427,6 +483,42 @@ def consulta():
     </body>
     </html>
     '''
+
+@app.route("/editar/<int:id>", methods=["GET", "POST"])
+@requiere_autenticacion
+def editar(id):
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    if request.method == "POST":
+        # Actualizar datos
+        equipo = request.form.get("equipo")
+        marca = request.form.get("marca")
+        falla = request.form.get("falla")
+        presupuesto = request.form.get("presupuesto")
+        tecnico = request.form.get("tecnico")
+        estado = request.form.get("estado")
+        actualizado = datetime.datetime.now().isoformat()
+        
+        cursor.execute('''
+            UPDATE reparaciones 
+            SET equipo = %s, marca = %s, falla = %s, presupuesto = %s, 
+                tecnico = %s, estado = %s, actualizado_en = %s
+            WHERE id = %s
+        ''', (equipo, marca, falla, presupuesto, tecnico, estado, actualizado, id))
+        conn.commit()
+        conn.close()
+        return redirect(url_for('listado'))
+    
+    # Mostrar formulario de edición
+    cursor.execute("SELECT * FROM reparaciones WHERE id = %s", (id,))
+    reparacion = cursor.fetchone()
+    conn.close()
+    
+    if reparacion is None:
+        return "Reparación no encontrada", 404
+    
+    return render_template_string(EDITAR_FORMULARIO, r=reparacion)
 
 if __name__ == "__main__":
     init_db()
