@@ -102,7 +102,7 @@ FORMULARIO = '''
 </html>
 '''
 
-# HTML para el listado (con técnico visible solo internamente)
+# HTML para el listado
 LISTADO = '''
 <!DOCTYPE html>
 <html>
@@ -120,6 +120,7 @@ LISTADO = '''
         .estado-espera_repuesto { color: red; font-weight: bold; }
         .estado-lista { color: green; font-weight: bold; }
         .estado-entregado { color: blue; font-weight: bold; }
+        .estado-no_procede { color: gray; font-weight: bold; }
         .btn { display: inline-block; background: #28a745; color: white; padding: 8px 15px; text-decoration: none; border-radius: 5px; margin: 10px 0; }
         .btn:hover { background: #1e7e34; }
         .btn-small { padding: 4px 10px; font-size: 14px; background: #007bff; }
@@ -186,7 +187,7 @@ LISTADO = '''
 </html>
 '''
 
-# HTML para el formulario de edición
+# HTML para el formulario de edición (CON NO PROCEDE)
 EDITAR_FORMULARIO = '''
 <!DOCTYPE html>
 <html>
@@ -231,6 +232,7 @@ EDITAR_FORMULARIO = '''
                 <option value="espera_repuesto" {% if r[11] == 'espera_repuesto' %}selected{% endif %}>Espera repuesto</option>
                 <option value="lista" {% if r[11] == 'lista' %}selected{% endif %}>Listo</option>
                 <option value="entregado" {% if r[11] == 'entregado' %}selected{% endif %}>Entregado</option>
+                <option value="no_procede" {% if r[11] == 'no_procede' %}selected{% endif %}>No Procede</option>
             </select>
             <button type="submit">💾 Guardar cambios</button>
             <a href="/listado" class="btn">← Cancelar</a>
@@ -433,6 +435,7 @@ def buscar():
 def dashboard():
     conn = get_db()
     cursor = conn.cursor()
+    # Excluir "no_procede" de las sumas
     cursor.execute("SELECT tecnico, COUNT(*), SUM(presupuesto) FROM reparaciones WHERE estado = 'entregado' GROUP BY tecnico")
     tecnicos = cursor.fetchall()
     cursor.execute("SELECT SUM(presupuesto) FROM reparaciones WHERE estado = 'entregado'")
