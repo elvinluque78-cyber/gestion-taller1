@@ -1,5 +1,5 @@
 from flask import Flask, request, render_template_string, redirect, url_for
-import sqlite3
+import psycopg2
 import datetime
 import requests
 import os
@@ -10,7 +10,39 @@ import cloudinary.uploader
 from twilio.rest import Client
 
 app = Flask(__name__)
-DB_NAME = "taller.db"
+
+# PostgreSQL desde variable de entorno
+DATABASE_URL = os.environ.get("DATABASE_URL")
+
+def get_db():
+    return psycopg2.connect(DATABASE_URL)
+
+def init_db():
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS reparaciones (
+            id SERIAL PRIMARY KEY,
+            codigo TEXT UNIQUE NOT NULL,
+            cliente_nombre TEXT NOT NULL,
+            cliente_telefono TEXT NOT NULL,
+            equipo TEXT NOT NULL,
+            marca TEXT,
+            falla TEXT,
+            presupuesto REAL,
+            tecnico TEXT,
+            fecha_entrada TEXT NOT NULL,
+            fecha_salida TEXT,
+            estado TEXT NOT NULL,
+            notificado_24h INTEGER DEFAULT 0,
+            creado_en TEXT NOT NULL,
+            actualizado_en TEXT NOT NULL,
+            foto_url TEXT
+        )
+    ''')
+    conn.commit()
+    conn.close()
+    print("✅ Base de datos PostgreSQL inicializada")
 
 # Credenciales de Cloudinary
 CLOUD_NAME = "drpmg1lso"
@@ -56,7 +88,7 @@ FORMULARIO = '''
 </html>
 '''
 
-# HTML para el listado (con botón Ver detalle)
+# HTML para el listado (con botón Ver foto)
 LISTADO = '''
 <!DOCTYPE html>
 <html>
@@ -83,6 +115,12 @@ LISTADO = '''
     <div class="container">
         <h1>📋 Listado de Reparaciones</h1>
         <a href="/" class="btn">➕ Nueva reparación</a>
+        <a href="/dashboard" class="btn">📊 Dashboard</a>
+        <form action="/buscar" method="GET" style="margin: 20px 0;">
+            <input type="text" name="q" placeholder="🔍 Buscar por nombre de cliente..." value="{{ busqueda }}" style="padding: 8px; width: 300px;">
+            <button type="submit" class="btn-small">Buscar</button>
+            <a href="/listado" class="btn-small">Ver todos</a>
+        </form>
         <div style="overflow-x: auto;">
         <table>
             <thead>
@@ -96,7 +134,7 @@ LISTADO = '''
                     <th>Estado</th>
                     <th>Entrada</th>
                     <th>Técnico</th>
-                    <th>Acciones</th>
+                    <th>Foto</th>
                 </tr>
             </thead>
             <tbody>
@@ -111,7 +149,13 @@ LISTADO = '''
                     <td class="estado-{{ r[11] }}">{{ r[11] }}</td>
                     <td>{{ r[9][:10] if r[9] else '' }}</td>
                     <td>{{ r[10] if r[10] else '' }}</td>
-                    <td><a href="/detalle/{{ r[0] }}" class="btn btn-small">🔍 Ver detalle</a></td>
+                    <td>
+                        {% if r[13] %}
+                            <a href="/foto/{{ r[0] }}" target="_blank" class="btn-small">📷 Ver foto</a>
+                        {% else %}
+                            <span style="color: gray;">Sin foto</span>
+                        {% endif %}
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -122,45 +166,41 @@ LISTADO = '''
 </html>
 '''
 
-# HTML para la página de detalle (con foto grande)
-DETALLE = '''
+# HTML para el dashboard
+DASHBOARD = '''
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Detalle de Reparación</title>
+    <title>Dashboard</title>
     <style>
         body { font-family: sans-serif; margin: 20px; background: #f0f2f5; }
         .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; }
-        .btn { display: inline-block; background: #007bff; color: white; padding: 8px 15px; text-decoration: none; border-radius: 5px; margin: 5px; }
+        .btn { display: inline-block; background: #007bff; color: white; padding: 8px 15px; text-decoration: none; border-radius: 5px; margin: 10px 0; }
         .btn:hover { background: #0056b3; }
-        .foto { max-width: 100%; border-radius: 10px; margin-top: 20px; }
-        .datos p { margin: 8px 0; }
+        table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background: #007bff; color: white; }
+        .total { font-size: 24px; font-weight: bold; color: green; margin: 20px 0; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🔧 Detalle de Reparación</h1>
-        <div class="datos">
-            <p><strong>Código:</strong> {{ r[1] }}</p>
-            <p><strong>Cliente:</strong> {{ r[2] }}</p>
-            <p><strong>Teléfono:</strong> {{ r[3] }}</p>
-            <p><strong>Equipo:</strong> {{ r[4] }}</p>
-            <p><strong>Marca:</strong> {{ r[5] }}</p>
-            <p><strong>Falla:</strong> {{ r[6] }}</p>
-            <p><strong>Presupuesto:</strong> {{ r[7] }}</p>
-            <p><strong>Técnico:</strong> {{ r[8] }}</p>
-            <p><strong>Estado:</strong> {{ r[11] }}</p>
-            <p><strong>Fecha entrada:</strong> {{ r[9][:10] if r[9] else '' }}</p>
-            {% if r[13] %}
-                <p><strong>Foto:</strong></p>
-                <img src="{{ r[13] }}" class="foto" alt="Foto del equipo">
-            {% else %}
-                <p><strong>Foto:</strong> Sin foto</p>
-            {% endif %}
-        </div>
+        <h1>📊 Dashboard de Ingresos</h1>
         <a href="/listado" class="btn">← Volver al listado</a>
+        <div class="total">💰 Total general: ${{ total_general }}</div>
+        <h2>Ingresos por técnico:</h2>
+        <tr>
+            <thead>
+                <tr><th>Técnico</th><th>Cantidad de tickets</th><th>Total facturado</th></tr>
+            </thead>
+            <tbody>
+                {% for t in tecnicos %}
+                <tr><td>{{ t[0] }}</td><td>{{ t[1] }}</td><td>${{ t[2] }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </body>
 </html>
@@ -176,7 +216,7 @@ def enviar_telegram(mensaje):
         pass
 
 def generar_codigo():
-    conn = sqlite3.connect(DB_NAME)
+    conn = get_db()
     cursor = conn.cursor()
     cursor.execute("SELECT codigo FROM reparaciones ORDER BY id DESC LIMIT 1")
     ultimo = cursor.fetchone()
@@ -212,7 +252,7 @@ def nueva():
         codigo = generar_codigo()
         ahora = datetime.datetime.now().isoformat()
         
-        # Subir foto a Cloudinary
+        # Subir foto
         foto_url = None
         if 'foto' in request.files:
             foto = request.files['foto']
@@ -229,34 +269,12 @@ def nueva():
                 except Exception as e:
                     print(f"⚠️ Error al subir foto: {e}")
         
-        conn = sqlite3.connect(DB_NAME)
+        conn = get_db()
         cursor = conn.cursor()
-        
-        # Crear tabla si no existe
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS reparaciones (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                codigo TEXT UNIQUE NOT NULL,
-                cliente_nombre TEXT NOT NULL,
-                cliente_telefono TEXT NOT NULL,
-                equipo TEXT NOT NULL,
-                marca TEXT,
-                falla TEXT,
-                presupuesto REAL,
-                tecnico TEXT,
-                fecha_entrada TEXT NOT NULL,
-                fecha_salida TEXT,
-                estado TEXT NOT NULL,
-                notificado_24h INTEGER DEFAULT 0,
-                creado_en TEXT NOT NULL,
-                actualizado_en TEXT NOT NULL,
-                foto_url TEXT
-            )
-        ''')
         
         cursor.execute('''
             INSERT INTO reparaciones (codigo, cliente_nombre, cliente_telefono, equipo, marca, falla, presupuesto, tecnico, fecha_entrada, estado, creado_en, actualizado_en, foto_url)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ''', (codigo, request.form.get('cliente_nombre'), request.form.get('cliente_telefono'),
               request.form.get('equipo'), request.form.get('marca'), request.form.get('falla'),
               float(request.form.get('presupuesto')) if request.form.get('presupuesto') else None,
@@ -264,13 +282,13 @@ def nueva():
         conn.commit()
         conn.close()
         
-        # Enviar Telegram
+        # Telegram
         mensaje_telegram = f"🆕 *Nueva reparación*\n📌 Código: {codigo}\n👤 Cliente: {request.form.get('cliente_nombre')}\n📞 Tel: {request.form.get('cliente_telefono')}\n🔧 Equipo: {request.form.get('equipo')} {request.form.get('marca')}\n👨‍🔧 Técnico: {request.form.get('tecnico')}"
         if foto_url:
             mensaje_telegram += f"\n📸 Foto: {foto_url}"
         enviar_telegram(mensaje_telegram)
         
-        # Enviar WhatsApp al técnico
+        # WhatsApp
         try:
             twilio_account_sid = os.environ.get("TWILIO_ACCOUNT_SID")
             twilio_auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
@@ -299,7 +317,7 @@ Gracias por confiar en nosotros."""
                     from_=twilio_whatsapp_from,
                     to=tecnico_whatsapp
                 )
-                print(f"✅ WhatsApp enviado al técnico")
+                print(f"✅ WhatsApp enviado")
         except Exception as e:
             print(f"⚠️ Error en WhatsApp: {e}")
         
@@ -308,52 +326,49 @@ Gracias por confiar en nosotros."""
 
 @app.route("/listado")
 def listado():
-    conn = sqlite3.connect(DB_NAME)
+    conn = get_db()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM reparaciones ORDER BY id DESC")
     reparaciones = cursor.fetchall()
     conn.close()
-    return render_template_string(LISTADO, reparaciones=reparaciones)
+    return render_template_string(LISTADO, reparaciones=reparaciones, busqueda='')
 
-@app.route("/detalle/<int:id>")
-def detalle(id):
-    conn = sqlite3.connect(DB_NAME)
+@app.route("/buscar")
+def buscar():
+    busqueda = request.args.get('q', '')
+    conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM reparaciones WHERE id = ?", (id,))
-    reparacion = cursor.fetchone()
+    cursor.execute("SELECT * FROM reparaciones WHERE cliente_nombre ILIKE %s ORDER BY id DESC", (f'%{busqueda}%',))
+    resultados = cursor.fetchall()
+    conn.close()
+    return render_template_string(LISTADO, reparaciones=resultados, busqueda=busqueda)
+
+@app.route("/dashboard")
+def dashboard():
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT tecnico, COUNT(*), SUM(presupuesto) FROM reparaciones WHERE estado = 'entregado' GROUP BY tecnico")
+    tecnicos = cursor.fetchall()
+    cursor.execute("SELECT SUM(presupuesto) FROM reparaciones WHERE estado = 'entregado'")
+    total = cursor.fetchone()[0] or 0
+    conn.close()
+    return render_template_string(DASHBOARD, tecnicos=tecnicos, total_general=total)
+
+@app.route("/foto/<int:id>")
+def foto(id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT foto_url FROM reparaciones WHERE id = %s", (id,))
+    resultado = cursor.fetchone()
     conn.close()
     
-    if reparacion is None:
-        return "Reparación no encontrada", 404
-    
-    return render_template_string(DETALLE, r=reparacion)
+    if resultado and resultado[0]:
+        foto_url = resultado[0]
+        return f'<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Foto</title><style>body {{ display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: #f0f2f5; }} img {{ max-width: 100%; max-height: 100vh; }}</style></head><body><img src="{foto_url}" alt="Foto del equipo"></body></html>'
+    else:
+        return "Sin foto", 404
 
 if __name__ == "__main__":
-    # Crear tabla si no existe
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS reparaciones (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            codigo TEXT UNIQUE NOT NULL,
-            cliente_nombre TEXT NOT NULL,
-            cliente_telefono TEXT NOT NULL,
-            equipo TEXT NOT NULL,
-            marca TEXT,
-            falla TEXT,
-            presupuesto REAL,
-            tecnico TEXT,
-            fecha_entrada TEXT NOT NULL,
-            fecha_salida TEXT,
-            estado TEXT NOT NULL,
-            notificado_24h INTEGER DEFAULT 0,
-            creado_en TEXT NOT NULL,
-            actualizado_en TEXT NOT NULL,
-            foto_url TEXT
-        )
-    ''')
-    conn.commit()
-    conn.close()
-    
-    port = int(os.environ.get("PORT", 8080))
+    init_db()
+    port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
