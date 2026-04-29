@@ -119,6 +119,7 @@ LISTADO = '''
         .estado-en_reparacion { color: orange; font-weight: bold; }
         .estado-espera_repuesto { color: red; font-weight: bold; }
         .estado-lista { color: green; font-weight: bold; }
+        .estado-entregado { color: blue; font-weight: bold; }
         .btn { display: inline-block; background: #28a745; color: white; padding: 8px 15px; text-decoration: none; border-radius: 5px; margin: 10px 0; }
         .btn:hover { background: #1e7e34; }
         .btn-small { padding: 4px 10px; font-size: 14px; background: #007bff; }
@@ -148,6 +149,7 @@ LISTADO = '''
                     <th>Falla</th>
                     <th>Estado</th>
                     <th>Entrada</th>
+                    <th>Salida</th>
                     <th>Técnico</th>
                     <th>Foto</th>
                     <th>Acciones</th>
@@ -162,9 +164,10 @@ LISTADO = '''
                     <td>{{ r[4] }} </td>
                     <td>{{ r[5] }}</td>
                     <td>{{ r[6][:50] }}{% if r[6]|length > 50 %}...{% endif %}</td>
-                    <td class="estado-{{ r[11] }}">{{ r[11] }}</td>
+                    <td class="estado-{{ r[11] }}">{{ r[11].replace('_', ' ') }}</td>
                     <td>{{ r[9][:10] if r[9] else '' }}</td>
-                    <td>{{ r[8] if r[8] else '' }}</td>
+                    <td>{% if r[10] %}{{ r[10][:10] }}{% else %}—{% endif %}</td>
+                    <td>{{ r[8] if r[8] else '—' }}</td>
                     <td>
                         {% if r[13] %}
                             <a href="/foto/{{ r[0] }}" target="_blank" class="btn-small">📷 Ver foto</a>
@@ -293,9 +296,8 @@ def enviar_telegram_listo(codigo, cliente_nombre, equipo, marca):
     try:
         requests.post(f"https://api.telegram.org/bot{token}/sendMessage", 
                       json={"chat_id": chat_id, "text": mensaje, "parse_mode": "Markdown"})
-        print(f"📱 Telegram enviado: {codigo} marcado como LISTO")
-    except Exception as e:
-        print(f"⚠️ Error enviando Telegram LISTO: {e}")
+    except:
+        pass
 
 def generar_codigo():
     conn = get_db()
@@ -364,13 +366,13 @@ def nueva():
         conn.commit()
         conn.close()
         
-        # Telegram (con técnico, interno)
+        # Telegram
         mensaje_telegram = f"🆕 *Nueva reparación*\n📌 Código: {codigo}\n👤 Cliente: {request.form.get('cliente_nombre')}\n📞 Tel: {request.form.get('cliente_telefono')}\n🔧 Equipo: {request.form.get('equipo')} {request.form.get('marca')}\n⚠️ Falla: {request.form.get('falla')}\n💰 Presupuesto: {request.form.get('presupuesto')}\n👨‍🔧 Técnico: {request.form.get('tecnico')}"
         if foto_url:
             mensaje_telegram += f"\n📸 Foto: {foto_url}"
         enviar_telegram(mensaje_telegram)
         
-        # WhatsApp (sin técnico, solo para el cliente)
+        # WhatsApp
         try:
             twilio_account_sid = os.environ.get("TWILIO_ACCOUNT_SID")
             twilio_auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
@@ -378,28 +380,27 @@ def nueva():
             
             if twilio_account_sid and twilio_auth_token:
                 twilio_client = Client(twilio_account_sid, twilio_auth_token)
-                tecnico_whatsapp = "whatsapp:+584123697532"
-                
-                mensaje_whatsapp = f"""🧾 *Ticket de ingreso – Elvin Tech*
+                numero_cliente = limpiar_numero_telefono(request.form.get('cliente_telefono'))
+                if numero_cliente:
+                    cliente_whatsapp = f"whatsapp:+{numero_cliente}"
+                    mensaje_whatsapp = f"""🧾 *Ticket de ingreso – Elvin Tech*
 📌 N° de ticket: *{codigo}*
 👤 Cliente: {request.form.get('cliente_nombre')}
-📞 Teléfono: {request.form.get('cliente_telefono')}
 🔧 Equipo: {request.form.get('equipo')} {request.form.get('marca')}
 ⚠️ Falla: {request.form.get('falla')}
 💰 Presupuesto: {request.form.get('presupuesto')}
 📅 Fecha ingreso: {ahora[:10]}
-📸 Foto: {foto_url if foto_url else 'Sin foto'}
 
 📞 Contacto taller: +58 412 3697532
 
 Gracias por confiar en nosotros."""
-                
-                twilio_client.messages.create(
-                    body=mensaje_whatsapp,
-                    from_=twilio_whatsapp_from,
-                    to=tecnico_whatsapp
-                )
-                print(f"✅ WhatsApp enviado")
+                    
+                    twilio_client.messages.create(
+                        body=mensaje_whatsapp,
+                        from_=twilio_whatsapp_from,
+                        to=cliente_whatsapp
+                    )
+                    print(f"✅ WhatsApp enviado a {cliente_whatsapp}")
         except Exception as e:
             print(f"⚠️ Error en WhatsApp: {e}")
         
@@ -462,9 +463,7 @@ def consulta():
         conn = get_db()
         cursor = conn.cursor()
         
-        # Si es acción de cambiar estado
         if accion == "cambiar_estado":
-            # Primero obtenemos los datos del ticket antes de actualizar
             cursor.execute("SELECT codigo, cliente_nombre, equipo, marca FROM reparaciones WHERE codigo = %s", (codigo,))
             ticket = cursor.fetchone()
             
@@ -472,14 +471,11 @@ def consulta():
                 cursor.execute("UPDATE reparaciones SET estado = 'lista', actualizado_en = %s WHERE codigo = %s AND estado = 'en_reparacion'", 
                               (datetime.datetime.now().isoformat(), codigo))
                 conn.commit()
-                
-                # Enviar notificación por Telegram
                 enviar_telegram_listo(ticket[0], ticket[1], ticket[2], ticket[3])
             
             conn.close()
             return '<h3>✅ Ticket marcado como LISTO</h3><a href="/consulta">Volver</a>'
         
-        # Si es solo consulta de foto y estado
         cursor.execute("SELECT id, codigo, estado, foto_url, cliente_nombre, equipo, marca FROM reparaciones WHERE codigo = %s", (codigo,))
         resultado = cursor.fetchone()
         conn.close()
@@ -559,26 +555,46 @@ def editar(id):
     cursor = conn.cursor()
     
     if request.method == "POST":
-        # Actualizar datos
+        # Obtener estado anterior
+        cursor.execute("SELECT estado FROM reparaciones WHERE id = %s", (id,))
+        estado_anterior = cursor.fetchone()[0]
+        
+        # Datos del formulario
         equipo = request.form.get("equipo")
         marca = request.form.get("marca")
         falla = request.form.get("falla")
         presupuesto = request.form.get("presupuesto")
         tecnico = request.form.get("tecnico")
-        estado = request.form.get("estado")
+        estado_nuevo = request.form.get("estado")
         actualizado = datetime.datetime.now().isoformat()
         
-        cursor.execute('''
-            UPDATE reparaciones 
-            SET equipo = %s, marca = %s, falla = %s, presupuesto = %s, 
-                tecnico = %s, estado = %s, actualizado_en = %s
-            WHERE id = %s
-        ''', (equipo, marca, falla, presupuesto, tecnico, estado, actualizado, id))
+        # Si cambia a "entregado", registrar fecha_salida
+        fecha_salida = None
+        if estado_nuevo == 'entregado' and estado_anterior != 'entregado':
+            fecha_salida = datetime.datetime.now().isoformat()
+            print(f"✅ Ticket {id} marcado como ENTREGADO - Fecha salida: {fecha_salida}")
+        
+        # Actualizar según corresponda
+        if fecha_salida:
+            cursor.execute('''
+                UPDATE reparaciones 
+                SET equipo = %s, marca = %s, falla = %s, presupuesto = %s, 
+                    tecnico = %s, estado = %s, actualizado_en = %s, fecha_salida = %s
+                WHERE id = %s
+            ''', (equipo, marca, falla, presupuesto, tecnico, estado_nuevo, actualizado, fecha_salida, id))
+        else:
+            cursor.execute('''
+                UPDATE reparaciones 
+                SET equipo = %s, marca = %s, falla = %s, presupuesto = %s, 
+                    tecnico = %s, estado = %s, actualizado_en = %s
+                WHERE id = %s
+            ''', (equipo, marca, falla, presupuesto, tecnico, estado_nuevo, actualizado, id))
+        
         conn.commit()
         conn.close()
         return redirect(url_for('listado'))
     
-    # Mostrar formulario de edición
+    # GET: mostrar formulario de edición
     cursor.execute("SELECT * FROM reparaciones WHERE id = %s", (id,))
     reparacion = cursor.fetchone()
     conn.close()
