@@ -102,41 +102,63 @@ FORMULARIO = '''
 </html>
 '''
 
-# HTML para el listado
+# HTML para el listado (VERSION CORREGIDA - SIN ENSALADA)
 LISTADO = '''
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=yes">
     <title>Listado de Reparaciones</title>
     <style>
-        body { font-family: sans-serif; margin: 20px; background: #f0f2f5; }
-        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; }
-        table { border-collapse: collapse; width: 100%; }
-        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-        th { background: #007bff; color: white; }
-        .estado-en_reparacion { color: orange; font-weight: bold; }
-        .estado-espera_repuesto { color: red; font-weight: bold; }
-        .estado-lista { color: green; font-weight: bold; }
-        .estado-entregado { color: blue; font-weight: bold; }
-        .estado-no_procede { color: gray; font-weight: bold; }
-        .btn { display: inline-block; background: #28a745; color: white; padding: 8px 15px; text-decoration: none; border-radius: 5px; margin: 10px 0; }
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 10px; background: #f0f2f5; }
+        .container { max-width: 100%; margin: 0 auto; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow-x: auto; }
+        h1 { font-size: 1.5rem; margin: 0 0 10px 0; color: #333; }
+        .btn-group { display: flex; flex-wrap: wrap; gap: 8px; margin: 15px 0; }
+        .btn { display: inline-block; background: #28a745; color: white; padding: 8px 12px; text-decoration: none; border-radius: 5px; font-size: 14px; border: none; cursor: pointer; }
         .btn:hover { background: #1e7e34; }
-        .btn-small { padding: 4px 10px; font-size: 14px; background: #007bff; }
+        .btn-blue { background: #007bff; }
+        .btn-blue:hover { background: #0056b3; }
+        .btn-red { background: #dc3545; }
+        .btn-red:hover { background: #c82333; }
+        .search-form { margin: 15px 0; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+        .search-form input { padding: 8px; border: 1px solid #ccc; border-radius: 5px; flex: 1; min-width: 150px; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th, td { border: 1px solid #ddd; padding: 8px 6px; text-align: left; vertical-align: top; }
+        th { background: #007bff; color: white; font-weight: bold; position: sticky; top: 0; white-space: nowrap; }
+        tr:nth-child(even) { background: #f9f9f9; }
+        tr:hover { background: #f1f1f1; }
+        .estado-en_reparacion { color: #ff9800; font-weight: bold; }
+        .estado-espera_repuesto { color: #f44336; font-weight: bold; }
+        .estado-lista { color: #4caf50; font-weight: bold; }
+        .estado-entregado { color: #2196f3; font-weight: bold; }
+        .estado-no_procede { color: #9e9e9e; font-weight: bold; }
+        .btn-small { padding: 4px 8px; font-size: 11px; background: #007bff; color: white; text-decoration: none; border-radius: 3px; display: inline-block; }
         .btn-small:hover { background: #0056b3; }
+        .foto-link { font-size: 11px; }
+        @media (max-width: 768px) {
+            body { padding: 5px; }
+            .container { padding: 8px; }
+            th, td { padding: 5px 3px; font-size: 10px; }
+            .btn { padding: 5px 8px; font-size: 11px; }
+            .btn-small { padding: 3px 5px; font-size: 9px; }
+            h1 { font-size: 1.2rem; }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>📋 Listado de Reparaciones</h1>
-        <a href="/" class="btn">➕ Nueva reparación</a>
-        <a href="/dashboard" class="btn">📊 Dashboard</a>
-        <a href="/consulta" class="btn">🔍 Consultar ticket</a>
-        <form action="/buscar" method="GET" style="margin: 20px 0;">
-            <input type="text" name="q" placeholder="🔍 Buscar por nombre de cliente..." value="{{ busqueda }}" style="padding: 8px; width: 300px;">
-            <button type="submit" class="btn-small">Buscar</button>
-            <a href="/listado" class="btn-small">Ver todos</a>
+        <div class="btn-group">
+            <a href="/" class="btn">➕ Nueva</a>
+            <a href="/dashboard" class="btn btn-blue">📊 Dashboard</a>
+            <a href="/consulta" class="btn btn-blue">🔍 Consultar ticket</a>
+        </div>
+        <form action="/buscar" method="GET" class="search-form">
+            <input type="text" name="q" placeholder="🔍 Buscar por nombre de cliente..." value="{{ busqueda }}">
+            <button type="submit" class="btn btn-blue">Buscar</button>
+            <a href="/listado" class="btn btn-red">Ver todos</a>
         </form>
         <div style="overflow-x: auto;">
         <table>
@@ -159,24 +181,24 @@ LISTADO = '''
             <tbody>
                 {% for r in reparaciones %}
                 <tr>
-                    <td>{{ r[1] }}</td>
-                    <td>{{ r[2] }}</td>
-                    <td>{{ r[3] }}</td>
-                    <td>{{ r[4] }} </td>
-                    <td>{{ r[5] }}</td>
-                    <td>{{ r[6][:50] }}{% if r[6]|length > 50 %}...{% endif %}</table>
-                    <td class="estado-{{ r[11] }}">{{ r[11].replace('_', ' ') }}</td>
-                    <td>{{ r[9][:10] if r[9] else '' }}</td>
-                    <td>{% if r[10] %}{{ r[10][:10] }}{% else %}—{% endif %}</td>
-                    <td>{{ r[8] if r[8] else '—' }}</td>
+                    <td>{{ r[1] }}</a></td>
+                    <td>{{ r[2] }}</a></td>
+                    <td>{{ r[3] }}</a></td>
+                    <td>{{ r[4] }}</a> </td>
+                    <td>{{ r[5] }}</a></td>
+                    <td>{{ r[6][:40] }}{% if r[6]|length > 40 %}...{% endif %}</a></td>
+                    <td class="estado-{{ r[11] }}">{{ r[11].replace('_', ' ') }}</a></td>
+                    <td>{{ r[9][:10] if r[9] else '' }}</a></td>
+                    <td>{% if r[10] %}{{ r[10][:10] }}{% else %}—{% endif %}</a></td>
+                    <td>{{ r[8] if r[8] else '—' }}</a></td>
                     <td>
                         {% if r[13] %}
-                            <a href="/foto/{{ r[0] }}" target="_blank" class="btn-small">📷 Ver foto</a>
+                            <a href="/foto/{{ r[0] }}" target="_blank" class="foto-link">📷 Ver</a>
                         {% else %}
-                            <span style="color: gray;">Sin foto</span>
+                            <span style="color: gray;">—</span>
                         {% endif %}
-                    </td>
-                    <td><a href="/editar/{{ r[0] }}" class="btn-small">✏️ Editar</a></td>
+                    </a></td>
+                    <td><a href="/editar/{{ r[0] }}" class="btn-small">✏️ Editar</a></a></td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -273,7 +295,8 @@ DASHBOARD = '''
             </thead>
             <tbody>
                 {% for t in tecnicos %}
-                <tr><td>{{ t[0] if t[0] else 'Sin asignar' }}</td><td>{{ t[1] }}</td><td>${{ t[2] }}</td></tr>
+                <tr><td>{{ t[0] if t[0] else 'Sin asignar' }}</td><td>{{ t[1] }}</td><td>${{ t[2] }}</td>
+                </tr>
                 {% endfor %}
             </tbody>
         </table>
