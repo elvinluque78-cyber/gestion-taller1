@@ -1,3 +1,4 @@
+
 from flask import Flask, request, render_template_string, redirect, url_for
 import psycopg2
 import datetime
@@ -288,8 +289,9 @@ def enviar_telegram(mensaje):
     try:
         requests.post(f"https://api.telegram.org/bot{token}/sendMessage", 
                       json={"chat_id": chat_id, "text": mensaje, "parse_mode": "Markdown"})
-    except:
-        pass
+        print("✅ Telegram enviado")
+    except Exception as e:
+        print(f"⚠️ Error en Telegram: {e}")
 
 def enviar_telegram_listo(codigo, cliente_nombre, equipo, marca):
     token = "8742564082:AAGuvUN_q4NjBgUL70hcRsnCkwS-eumS6Sc"
@@ -298,8 +300,9 @@ def enviar_telegram_listo(codigo, cliente_nombre, equipo, marca):
     try:
         requests.post(f"https://api.telegram.org/bot{token}/sendMessage", 
                       json={"chat_id": chat_id, "text": mensaje, "parse_mode": "Markdown"})
-    except:
-        pass
+        print("✅ Telegram LISTO enviado")
+    except Exception as e:
+        print(f"⚠️ Error en Telegram LISTO: {e}")
 
 def enviar_whatsapp_listo(codigo, cliente_nombre, equipo, marca, telefono_cliente):
     """Envía WhatsApp al técnico cuando un equipo está listo"""
@@ -308,26 +311,31 @@ def enviar_whatsapp_listo(codigo, cliente_nombre, equipo, marca, telefono_client
         twilio_auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
         twilio_whatsapp_from = os.environ.get("TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886")
         
-        if twilio_account_sid and twilio_auth_token:
-            twilio_client = Client(twilio_account_sid, twilio_auth_token)
-            # Número del técnico (el que está registrado en el Sandbox)
-            tecnico_whatsapp = "whatsapp:+584123697532"
-            
-            mensaje = f"""✅ *EQUIPO LISTO PARA ENTREGAR*
+        print(f"📱 Intentando enviar WhatsApp LISTO")
+        print(f"   Account SID: {twilio_account_sid[:5] if twilio_account_sid else 'No existe'}...")
+        
+        if not twilio_account_sid or not twilio_auth_token:
+            print("⚠️ Faltan credenciales de Twilio en las variables de entorno")
+            return False
+        
+        twilio_client = Client(twilio_account_sid, twilio_auth_token)
+        tecnico_whatsapp = "whatsapp:+584123697532"
+        
+        mensaje = f"""✅ *EQUIPO LISTO PARA ENTREGAR*
 📌 Código: {codigo}
 👤 Cliente: {cliente_nombre}
 📞 Teléfono cliente: {telefono_cliente}
 🔧 Equipo: {equipo} {marca}
 
 🏁 El equipo está listo. Coordina la entrega con el cliente."""
-            
-            twilio_client.messages.create(
-                body=mensaje,
-                from_=twilio_whatsapp_from,
-                to=tecnico_whatsapp
-            )
-            print(f"✅ WhatsApp de LISTO enviado al técnico")
-            return True
+        
+        message = twilio_client.messages.create(
+            body=mensaje,
+            from_=twilio_whatsapp_from,
+            to=tecnico_whatsapp
+        )
+        print(f"✅ WhatsApp de LISTO enviado - SID: {message.sid}")
+        return True
     except Exception as e:
         print(f"⚠️ Error enviando WhatsApp de LISTO: {e}")
         return False
@@ -509,6 +517,7 @@ def consulta():
                 # Enviar notificaciones
                 enviar_telegram_listo(ticket[0], ticket[1], ticket[2], ticket[3])
                 enviar_whatsapp_listo(ticket[0], ticket[1], ticket[2], ticket[3], ticket[2])
+                print(f"✅ Ticket {codigo} marcado como LISTO - Notificaciones enviadas")
             
             conn.close()
             return '<h3>✅ Ticket marcado como LISTO</h3><a href="/consulta">Volver</a>'
