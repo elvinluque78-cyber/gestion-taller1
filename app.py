@@ -102,7 +102,7 @@ FORMULARIO = '''
 </html>
 '''
 
-# HTML para el listado (VERSION CORREGIDA - SIN ENSALADA)
+# HTML para el listado (VERSION DEFINITIVA - NO SE CORRE)
 LISTADO = '''
 <!DOCTYPE html>
 <html>
@@ -111,102 +111,208 @@ LISTADO = '''
     <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=yes">
     <title>Listado de Reparaciones</title>
     <style>
-        * { box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 10px; background: #f0f2f5; }
-        .container { max-width: 100%; margin: 0 auto; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow-x: auto; }
-        h1 { font-size: 1.5rem; margin: 0 0 10px 0; color: #333; }
-        .btn-group { display: flex; flex-wrap: wrap; gap: 8px; margin: 15px 0; }
-        .btn { display: inline-block; background: #28a745; color: white; padding: 8px 12px; text-decoration: none; border-radius: 5px; font-size: 14px; border: none; cursor: pointer; }
-        .btn:hover { background: #1e7e34; }
-        .btn-blue { background: #007bff; }
-        .btn-blue:hover { background: #0056b3; }
-        .btn-red { background: #dc3545; }
-        .btn-red:hover { background: #c82333; }
-        .search-form { margin: 15px 0; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-        .search-form input { padding: 8px; border: 1px solid #ccc; border-radius: 5px; flex: 1; min-width: 150px; }
-        table { width: 100%; border-collapse: collapse; font-size: 12px; }
-        th, td { border: 1px solid #ddd; padding: 8px 6px; text-align: left; vertical-align: top; }
-        th { background: #007bff; color: white; font-weight: bold; position: sticky; top: 0; white-space: nowrap; }
-        tr:nth-child(even) { background: #f9f9f9; }
-        tr:hover { background: #f1f1f1; }
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: #f0f2f5;
+            margin: 0;
+            padding: 10px;
+        }
+        .container {
+            max-width: 100%;
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            overflow-x: auto;
+        }
+        h1 {
+            font-size: 1.5rem;
+            margin: 0 0 15px 0;
+            color: #1a1a2e;
+        }
+        .btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .btn {
+            display: inline-block;
+            background: #28a745;
+            color: white;
+            padding: 8px 14px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            border: none;
+            cursor: pointer;
+        }
+        .btn:hover {
+            background: #1e7e34;
+        }
+        .btn-blue {
+            background: #007bff;
+        }
+        .btn-blue:hover {
+            background: #0056b3;
+        }
+        .btn-red {
+            background: #dc3545;
+        }
+        .btn-red:hover {
+            background: #c82333;
+        }
+        .search-form {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+        .search-form input {
+            flex: 1;
+            min-width: 180px;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            min-width: 900px;
+        }
+        th, td {
+            border: 1px solid #e0e0e0;
+            padding: 8px 8px;
+            text-align: left;
+            vertical-align: top;
+        }
+        th {
+            background: #1a1a2e;
+            color: white;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+        tr:hover {
+            background: #f1f1f1;
+        }
         .estado-en_reparacion { color: #ff9800; font-weight: bold; }
         .estado-espera_repuesto { color: #f44336; font-weight: bold; }
         .estado-lista { color: #4caf50; font-weight: bold; }
         .estado-entregado { color: #2196f3; font-weight: bold; }
         .estado-no_procede { color: #9e9e9e; font-weight: bold; }
-        .btn-small { padding: 4px 8px; font-size: 11px; background: #007bff; color: white; text-decoration: none; border-radius: 3px; display: inline-block; }
-        .btn-small:hover { background: #0056b3; }
-        .foto-link { font-size: 11px; }
+        .btn-small {
+            background: #007bff;
+            color: white;
+            padding: 4px 8px;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 11px;
+            display: inline-block;
+        }
+        .btn-small:hover {
+            background: #0056b3;
+        }
+        .foto-link {
+            font-size: 11px;
+            color: #007bff;
+            text-decoration: none;
+        }
+        .foto-link:hover {
+            text-decoration: underline;
+        }
         @media (max-width: 768px) {
-            body { padding: 5px; }
-            .container { padding: 8px; }
-            th, td { padding: 5px 3px; font-size: 10px; }
-            .btn { padding: 5px 8px; font-size: 11px; }
-            .btn-small { padding: 3px 5px; font-size: 9px; }
-            h1 { font-size: 1.2rem; }
+            body {
+                padding: 5px;
+            }
+            .container {
+                padding: 10px;
+            }
+            th, td {
+                padding: 6px 4px;
+                font-size: 10px;
+            }
+            .btn {
+                padding: 6px 10px;
+                font-size: 12px;
+            }
+            .btn-small {
+                padding: 3px 6px;
+                font-size: 9px;
+            }
+            h1 {
+                font-size: 1.2rem;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>📋 Listado de Reparaciones</h1>
+        
         <div class="btn-group">
-            <a href="/" class="btn">➕ Nueva</a>
+            <a href="/" class="btn">➕ Nueva reparación</a>
             <a href="/dashboard" class="btn btn-blue">📊 Dashboard</a>
             <a href="/consulta" class="btn btn-blue">🔍 Consultar ticket</a>
         </div>
+        
         <form action="/buscar" method="GET" class="search-form">
             <input type="text" name="q" placeholder="🔍 Buscar por nombre de cliente..." value="{{ busqueda }}">
             <button type="submit" class="btn btn-blue">Buscar</button>
             <a href="/listado" class="btn btn-red">Ver todos</a>
         </form>
+        
         <div style="overflow-x: auto;">
-        <table>
-            <thead>
-                <tr>
-                    <th>Código</th>
-                    <th>Cliente</th>
-                    <th>Teléfono</th>
-                    <th>Equipo</th>
-                    <th>Marca</th>
-                    <th>Falla</th>
-                    <th>Estado</th>
-                    <th>Entrada</th>
-                    <th>Salida</th>
-                    <th>Técnico</th>
-                    <th>Foto</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for r in reparaciones %}
-                <tr>
-                    <td>{{ r[1] }}</a></td>
-                    <td>{{ r[2] }}</a></td>
-                    <td>{{ r[3] }}</a></td>
-                    <td>{{ r[4] }}</a> </td>
-                    <td>{{ r[5] }}</a></td>
-                    <td>{{ r[6][:40] }}{% if r[6]|length > 40 %}...{% endif %}</a></td>
-                    <td class="estado-{{ r[11] }}">{{ r[11].replace('_', ' ') }}</a></td>
-                    <td>{{ r[9][:10] if r[9] else '' }}</a></td>
-                    <td>{% if r[10] %}{{ r[10][:10] }}{% else %}—{% endif %}</a></td>
-                    <td>{{ r[8] if r[8] else '—' }}</a></td>
-                    <td>
-                        {% if r[13] %}
-                            <a href="/foto/{{ r[0] }}" target="_blank" class="foto-link">📷 Ver</a>
-                        {% else %}
-                            <span style="color: gray;">—</span>
-                        {% endif %}
-                    </a></td>
-                    <td><a href="/editar/{{ r[0] }}" class="btn-small">✏️ Editar</a></a></td>
-                </table>
-                {% endfor %}
-            </tbody>
-        </table>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Cliente</th>
+                        <th>Teléfono</th>
+                        <th>Equipo</th>
+                        <th>Marca</th>
+                        <th>Falla</th>
+                        <th>Estado</th>
+                        <th>Entrada</th>
+                        <th>Salida</th>
+                        <th>Técnico</th>
+                        <th>Foto</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in reparaciones %}
+                    <tr>
+                        <td>{{ r[1] }}</td>
+                        <td>{{ r[2] }}</td>
+                        <td>{{ r[3] }}</td>
+                        <td>{{ r[4] }}</td>
+                        <td>{{ r[5] }}</td>
+                        <td>{{ r[6][:40] }}{% if r[6]|length > 40 %}...{% endif %}</td>
+                        <td class="estado-{{ r[11] }}">{{ r[11].replace('_', ' ') }}</td>
+                        <td>{{ r[9][:10] if r[9] else '' }}</td>
+                        <td>{% if r[10] %}{{ r[10][:10] }}{% else %}—{% endif %}</td>
+                        <td>{{ r[8] if r[8] else '—' }}</td>
+                        <td>{% if r[13] %}<a href="/foto/{{ r[0] }}" target="_blank" class="foto-link">📷 Ver</a>{% else %}<span style="color: gray;">—</span>{% endif %}</td>
+                        <td><a href="/editar/{{ r[0] }}" class="btn-small">✏️ Editar</a></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
 </body>
 </html>
+'''
 '''
 
 # HTML para el formulario de edición
@@ -341,19 +447,18 @@ def enviar_whatsapp_listo(codigo, cliente_nombre, equipo, marca, telefono_client
         twilio_client = Client(twilio_account_sid, twilio_auth_token)
         tecnico_whatsapp = "whatsapp:+584123697532"
         
-        # Mensaje listo para REENVIAR al cliente
         mensaje = f"""✅ *EQUIPO REPARADO - LISTO PARA RETIRAR*
 
-🔧 *Taller Elvin Technology*
+🔧 *Elvin Technology*
 📌 Código de reparación: *{codigo}*
 👤 Cliente: {cliente_nombre}
 🔧 Equipo: {equipo} {marca}
 
-🏁 Su equipo ya está listo. Puede pasar a retirarlo  por el taller.
-
 ⏰ *Horario de retiro:*
 📍 Lunes a Sábado
 🕘 9:00 am a 4:00 pm
+
+🏁 Tu equipo ya está listo. Puede pasar a retirarlo en el taller.
 
 📞 Contacto: +58 412 3697532
 
@@ -454,7 +559,7 @@ def nueva():
                 numero_cliente = limpiar_numero_telefono(request.form.get('cliente_telefono'))
                 if numero_cliente:
                     cliente_whatsapp = f"whatsapp:+{numero_cliente}"
-                    mensaje_whatsapp = f"""🧾 *Ticket de ingreso – Elvin Tech*
+                    mensaje_whatsapp = f"""🧾 *Ticket de ingreso – Elvin Technology*
 📌 N° de ticket: *{codigo}*
 👤 Cliente: {request.form.get('cliente_nombre')}
 🔧 Equipo: {request.form.get('equipo')} {request.form.get('marca')}
