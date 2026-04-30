@@ -344,7 +344,7 @@ def enviar_whatsapp_listo(codigo, cliente_nombre, equipo, marca, telefono_client
         # Mensaje listo para REENVIAR al cliente
         mensaje = f"""✅ *EQUIPO REPARADO - LISTO PARA RETIRAR*
 
-🔧 *Taller Elvin Tech*
+🔧 *Taller Elvin Technology*
 📌 Código de reparación: *{codigo}*
 👤 Cliente: {cliente_nombre}
 🔧 Equipo: {equipo} {marca}
