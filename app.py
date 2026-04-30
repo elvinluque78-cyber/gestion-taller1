@@ -102,7 +102,7 @@ FORMULARIO = '''
 </html>
 '''
 
-# HTML para el listado (VERSION DEFINITIVA - NO SE CORRE)
+# HTML para el listado (VERSION CORREGIDA - SIN ERRORES)
 LISTADO = '''
 <!DOCTYPE html>
 <html>
@@ -115,7 +115,7 @@ LISTADO = '''
             box-sizing: border-box;
         }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
             background: #f0f2f5;
             margin: 0;
             padding: 10px;
@@ -258,19 +258,19 @@ LISTADO = '''
 <body>
     <div class="container">
         <h1>📋 Listado de Reparaciones</h1>
-        
+
         <div class="btn-group">
             <a href="/" class="btn">➕ Nueva reparación</a>
             <a href="/dashboard" class="btn btn-blue">📊 Dashboard</a>
             <a href="/consulta" class="btn btn-blue">🔍 Consultar ticket</a>
         </div>
-        
+
         <form action="/buscar" method="GET" class="search-form">
             <input type="text" name="q" placeholder="🔍 Buscar por nombre de cliente..." value="{{ busqueda }}">
             <button type="submit" class="btn btn-blue">Buscar</button>
             <a href="/listado" class="btn btn-red">Ver todos</a>
         </form>
-        
+
         <div style="overflow-x: auto;">
             <table>
                 <thead>
@@ -300,10 +300,10 @@ LISTADO = '''
                         <td>{{ r[6][:40] }}{% if r[6]|length > 40 %}...{% endif %}</td>
                         <td class="estado-{{ r[11] }}">{{ r[11].replace('_', ' ') }}</td>
                         <td>{{ r[9][:10] if r[9] else '' }}</td>
-                        <td>{% if r[10] %}{{ r[10][:10] }}{% else %}—{% endif %}</td>
-                        <td>{{ r[8] if r[8] else '—' }}</td>
-                        <td>{% if r[13] %}<a href="/foto/{{ r[0] }}" target="_blank" class="foto-link">📷 Ver</a>{% else %}<span style="color: gray;">—</span>{% endif %}</td>
-                        <td><a href="/editar/{{ r[0] }}" class="btn-small">✏️ Editar</a></td>
+                        <td>{% if r[10] %}{{ r[10][:10] }}{% else %}{% endif %}</td>
+                        <td>{{ r[8] if r[8] else '' }}</td>
+                        <td>{% if r[13] %}<a href="/foto/{{ r[0] }}" target="_blank" class="foto-link"> Ver</a>{% else %}{% endif %}</td>
+                        <td><a href="/editar/{{ r[0] }}" class="btn-small"> Editar</a></td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -313,7 +313,7 @@ LISTADO = '''
 </body>
 </html>
 '''
-'''
+
 
 # HTML para el formulario de edición
 EDITAR_FORMULARIO = '''
@@ -397,11 +397,19 @@ DASHBOARD = '''
         <h2>Ingresos por técnico:</h2>
         <table>
             <thead>
-                <tr><th>Técnico</th><th>Cantidad de tickets</th><th>Total facturado</th></tr>
+                <tr>
+                    <th>Técnico</th>
+                    <th>Cantidad de tickets</th>
+                    <th>Total facturado</th>
+                </tr>
             </thead>
             <tbody>
                 {% for t in tecnicos %}
-                <tr><td>{{ t[0] if t[0] else 'Sin asignar' }}</td><td>{{ t[1] }}</td><td>${{ t[2] }}</td></tr>
+                <tr>
+                    <td>{{ t[0] if t[0] else 'Sin asignar' }}</td>
+                    <td>{{ t[1] }}</td>
+                    <td>${{ t[2] }}</td>
+                </tr>
                 {% endfor %}
             </tbody>
         </table>
