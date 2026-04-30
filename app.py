@@ -187,7 +187,7 @@ LISTADO = '''
 </html>
 '''
 
-# HTML para el formulario de edición (CON NO PROCEDE)
+# HTML para el formulario de edición
 EDITAR_FORMULARIO = '''
 <!DOCTYPE html>
 <html>
@@ -301,6 +301,37 @@ def enviar_telegram_listo(codigo, cliente_nombre, equipo, marca):
     except:
         pass
 
+def enviar_whatsapp_listo(codigo, cliente_nombre, equipo, marca, telefono_cliente):
+    """Envía WhatsApp al técnico cuando un equipo está listo"""
+    try:
+        twilio_account_sid = os.environ.get("TWILIO_ACCOUNT_SID")
+        twilio_auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
+        twilio_whatsapp_from = os.environ.get("TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886")
+        
+        if twilio_account_sid and twilio_auth_token:
+            twilio_client = Client(twilio_account_sid, twilio_auth_token)
+            # Número del técnico (el que está registrado en el Sandbox)
+            tecnico_whatsapp = "whatsapp:+584123697532"
+            
+            mensaje = f"""✅ *EQUIPO LISTO PARA ENTREGAR*
+📌 Código: {codigo}
+👤 Cliente: {cliente_nombre}
+📞 Teléfono cliente: {telefono_cliente}
+🔧 Equipo: {equipo} {marca}
+
+🏁 El equipo está listo. Coordina la entrega con el cliente."""
+            
+            twilio_client.messages.create(
+                body=mensaje,
+                from_=twilio_whatsapp_from,
+                to=tecnico_whatsapp
+            )
+            print(f"✅ WhatsApp de LISTO enviado al técnico")
+            return True
+    except Exception as e:
+        print(f"⚠️ Error enviando WhatsApp de LISTO: {e}")
+        return False
+
 def generar_codigo():
     conn = get_db()
     cursor = conn.cursor()
@@ -374,7 +405,7 @@ def nueva():
             mensaje_telegram += f"\n📸 Foto: {foto_url}"
         enviar_telegram(mensaje_telegram)
         
-        # WhatsApp
+        # WhatsApp al cliente
         try:
             twilio_account_sid = os.environ.get("TWILIO_ACCOUNT_SID")
             twilio_auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
@@ -435,7 +466,6 @@ def buscar():
 def dashboard():
     conn = get_db()
     cursor = conn.cursor()
-    # Excluir "no_procede" de las sumas
     cursor.execute("SELECT tecnico, COUNT(*), SUM(presupuesto) FROM reparaciones WHERE estado = 'entregado' GROUP BY tecnico")
     tecnicos = cursor.fetchall()
     cursor.execute("SELECT SUM(presupuesto) FROM reparaciones WHERE estado = 'entregado'")
@@ -467,19 +497,23 @@ def consulta():
         cursor = conn.cursor()
         
         if accion == "cambiar_estado":
-            cursor.execute("SELECT codigo, cliente_nombre, equipo, marca FROM reparaciones WHERE codigo = %s", (codigo,))
+            # Obtener datos del ticket antes de actualizar
+            cursor.execute("SELECT codigo, cliente_nombre, cliente_telefono, equipo, marca FROM reparaciones WHERE codigo = %s", (codigo,))
             ticket = cursor.fetchone()
             
             if ticket:
                 cursor.execute("UPDATE reparaciones SET estado = 'lista', actualizado_en = %s WHERE codigo = %s AND estado = 'en_reparacion'", 
                               (datetime.datetime.now().isoformat(), codigo))
                 conn.commit()
+                
+                # Enviar notificaciones
                 enviar_telegram_listo(ticket[0], ticket[1], ticket[2], ticket[3])
+                enviar_whatsapp_listo(ticket[0], ticket[1], ticket[2], ticket[3], ticket[2])
             
             conn.close()
             return '<h3>✅ Ticket marcado como LISTO</h3><a href="/consulta">Volver</a>'
         
-        cursor.execute("SELECT id, codigo, estado, foto_url, cliente_nombre, equipo, marca FROM reparaciones WHERE codigo = %s", (codigo,))
+        cursor.execute("SELECT id, codigo, estado, foto_url, cliente_nombre, cliente_telefono, equipo, marca FROM reparaciones WHERE codigo = %s", (codigo,))
         resultado = cursor.fetchone()
         conn.close()
         
