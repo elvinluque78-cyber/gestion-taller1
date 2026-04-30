@@ -199,7 +199,7 @@ LISTADO = '''
                         {% endif %}
                     </a></td>
                     <td><a href="/editar/{{ r[0] }}" class="btn-small">✏️ Editar</a></a></td>
-                </tr>
+                </table>
                 {% endfor %}
             </tbody>
         </table>
@@ -295,8 +295,7 @@ DASHBOARD = '''
             </thead>
             <tbody>
                 {% for t in tecnicos %}
-                <tr><td>{{ t[0] if t[0] else 'Sin asignar' }}</td><td>{{ t[1] }}</td><td>${{ t[2] }}</td>
-                </tr>
+                <tr><td>{{ t[0] if t[0] else 'Sin asignar' }}</td><td>{{ t[1] }}</td><td>${{ t[2] }}</td></tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -327,7 +326,7 @@ def enviar_telegram_listo(codigo, cliente_nombre, equipo, marca):
         print(f"⚠️ Error en Telegram LISTO: {e}")
 
 def enviar_whatsapp_listo(codigo, cliente_nombre, equipo, marca, telefono_cliente):
-    """Envía WhatsApp al técnico cuando un equipo está listo"""
+    """Envía WhatsApp al técnico con mensaje listo para REENVIAR al cliente"""
     try:
         twilio_account_sid = os.environ.get("TWILIO_ACCOUNT_SID")
         twilio_auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
@@ -342,13 +341,23 @@ def enviar_whatsapp_listo(codigo, cliente_nombre, equipo, marca, telefono_client
         twilio_client = Client(twilio_account_sid, twilio_auth_token)
         tecnico_whatsapp = "whatsapp:+584123697532"
         
-        mensaje = f"""✅ *EQUIPO LISTO PARA ENTREGAR*
-📌 Código: {codigo}
+        # Mensaje listo para REENVIAR al cliente
+        mensaje = f"""✅ *EQUIPO REPARADO - LISTO PARA RETIRAR*
+
+🔧 *Taller Elvin Tech*
+📌 Código de reparación: *{codigo}*
 👤 Cliente: {cliente_nombre}
-📞 Teléfono cliente: {telefono_cliente}
 🔧 Equipo: {equipo} {marca}
 
-🏁 El equipo está listo. Coordina la entrega con el cliente."""
+🏁 Su equipo ya está listo. Puede pasar a retirarlo  por el taller.
+
+⏰ *Horario de retiro:*
+📍 Lunes a Sábado
+🕘 9:00 am a 4:00 pm
+
+📞 Contacto: +58 412 3697532
+
+¡Gracias por confiar en nosotros!"""
         
         message = twilio_client.messages.create(
             body=mensaje,
