@@ -1,4 +1,3 @@
-
 from flask import Flask, request, render_template_string, redirect, url_for
 import psycopg2
 import datetime
@@ -165,7 +164,7 @@ LISTADO = '''
                     <td>{{ r[3] }}</td>
                     <td>{{ r[4] }} </td>
                     <td>{{ r[5] }}</td>
-                    <td>{{ r[6][:50] }}{% if r[6]|length > 50 %}...{% endif %}</td>
+                    <td>{{ r[6][:50] }}{% if r[6]|length > 50 %}...{% endif %}</table>
                     <td class="estado-{{ r[11] }}">{{ r[11].replace('_', ' ') }}</td>
                     <td>{{ r[9][:10] if r[9] else '' }}</td>
                     <td>{% if r[10] %}{{ r[10][:10] }}{% else %}—{% endif %}</td>
@@ -312,7 +311,6 @@ def enviar_whatsapp_listo(codigo, cliente_nombre, equipo, marca, telefono_client
         twilio_whatsapp_from = os.environ.get("TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886")
         
         print(f"📱 Intentando enviar WhatsApp LISTO")
-        print(f"   Account SID: {twilio_account_sid[:5] if twilio_account_sid else 'No existe'}...")
         
         if not twilio_account_sid or not twilio_auth_token:
             print("⚠️ Faltan credenciales de Twilio en las variables de entorno")
@@ -505,7 +503,6 @@ def consulta():
         cursor = conn.cursor()
         
         if accion == "cambiar_estado":
-            # Obtener datos del ticket antes de actualizar
             cursor.execute("SELECT codigo, cliente_nombre, cliente_telefono, equipo, marca FROM reparaciones WHERE codigo = %s", (codigo,))
             ticket = cursor.fetchone()
             
@@ -513,11 +510,9 @@ def consulta():
                 cursor.execute("UPDATE reparaciones SET estado = 'lista', actualizado_en = %s WHERE codigo = %s AND estado = 'en_reparacion'", 
                               (datetime.datetime.now().isoformat(), codigo))
                 conn.commit()
-                
-                # Enviar notificaciones
                 enviar_telegram_listo(ticket[0], ticket[1], ticket[2], ticket[3])
                 enviar_whatsapp_listo(ticket[0], ticket[1], ticket[2], ticket[3], ticket[2])
-                print(f"✅ Ticket {codigo} marcado como LISTO - Notificaciones enviadas")
+                print(f"✅ Ticket {codigo} marcado como LISTO desde consulta pública")
             
             conn.close()
             return '<h3>✅ Ticket marcado como LISTO</h3><a href="/consulta">Volver</a>'
@@ -601,18 +596,30 @@ def editar(id):
     cursor = conn.cursor()
     
     if request.method == "POST":
-        # Obtener estado anterior
-        cursor.execute("SELECT estado FROM reparaciones WHERE id = %s", (id,))
-        estado_anterior = cursor.fetchone()[0]
+        # Obtener estado anterior y datos del ticket
+        cursor.execute("SELECT estado, codigo, cliente_nombre, cliente_telefono, equipo, marca FROM reparaciones WHERE id = %s", (id,))
+        resultado = cursor.fetchone()
+        estado_anterior = resultado[0]
+        codigo = resultado[1]
+        cliente_nombre = resultado[2]
+        cliente_telefono = resultado[3]
+        equipo = resultado[4]
+        marca = resultado[5]
         
         # Datos del formulario
-        equipo = request.form.get("equipo")
-        marca = request.form.get("marca")
+        equipo_nuevo = request.form.get("equipo")
+        marca_nueva = request.form.get("marca")
         falla = request.form.get("falla")
         presupuesto = request.form.get("presupuesto")
         tecnico = request.form.get("tecnico")
         estado_nuevo = request.form.get("estado")
         actualizado = datetime.datetime.now().isoformat()
+        
+        # Si cambia a "lista" y antes no lo estaba, enviar notificaciones
+        if estado_nuevo == 'lista' and estado_anterior != 'lista':
+            print(f"📢 Ticket {codigo} cambiado a LISTO desde edición - Enviando notificaciones")
+            enviar_telegram_listo(codigo, cliente_nombre, equipo, marca)
+            enviar_whatsapp_listo(codigo, cliente_nombre, equipo, marca, cliente_telefono)
         
         # Si cambia a "entregado", registrar fecha_salida
         fecha_salida = None
@@ -627,14 +634,14 @@ def editar(id):
                 SET equipo = %s, marca = %s, falla = %s, presupuesto = %s, 
                     tecnico = %s, estado = %s, actualizado_en = %s, fecha_salida = %s
                 WHERE id = %s
-            ''', (equipo, marca, falla, presupuesto, tecnico, estado_nuevo, actualizado, fecha_salida, id))
+            ''', (equipo_nuevo, marca_nueva, falla, presupuesto, tecnico, estado_nuevo, actualizado, fecha_salida, id))
         else:
             cursor.execute('''
                 UPDATE reparaciones 
                 SET equipo = %s, marca = %s, falla = %s, presupuesto = %s, 
                     tecnico = %s, estado = %s, actualizado_en = %s
                 WHERE id = %s
-            ''', (equipo, marca, falla, presupuesto, tecnico, estado_nuevo, actualizado, id))
+            ''', (equipo_nuevo, marca_nueva, falla, presupuesto, tecnico, estado_nuevo, actualizado, id))
         
         conn.commit()
         conn.close()
