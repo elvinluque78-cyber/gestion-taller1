@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template_string, redirect, url_for, session
+from flask import Flask, request, render_template_string, redirect, url_for
 import psycopg2
 import datetime
 import requests
@@ -11,7 +11,6 @@ from twilio.rest import Client
 from functools import wraps
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "clave_super_secreta_garantias_2025")
 
 # Configuración de autenticación
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
@@ -73,14 +72,13 @@ def init_db():
             estado TEXT NOT NULL,
             foto_url TEXT,
             creado_en TEXT NOT NULL,
-            actualizado_en TEXT NOT NULL,
-            FOREIGN KEY (codigo) REFERENCES reparaciones(codigo)
+            actualizado_en TEXT NOT NULL
         )
     ''')
     
     conn.commit()
     conn.close()
-    print("✅ Base de datos PostgreSQL inicializada (reparaciones + garantias)")
+    print("✅ Base de datos PostgreSQL inicializada")
 
 # Credenciales de Cloudinary
 CLOUD_NAME = "drpmg1lso"
@@ -128,15 +126,164 @@ FORMULARIO = '''
 </html>
 '''
 
+# HTML para el listado (original, sin cambios)
+LISTADO = '''
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Listado de Reparaciones</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background: #f0f2f5; }
+        .container { max-width: 100%; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; overflow-x: auto; }
+        table { border-collapse: collapse; width: 100%; min-width: 800px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background: #007bff; color: white; }
+        .estado-en_reparacion { color: orange; font-weight: bold; }
+        .estado-espera_repuesto { color: red; font-weight: bold; }
+        .estado-lista { color: green; font-weight: bold; }
+        .estado-entregado { color: blue; font-weight: bold; }
+        .estado-no_procede { color: gray; font-weight: bold; }
+        .btn { display: inline-block; background: #28a745; color: white; padding: 8px 15px; text-decoration: none; border-radius: 5px; margin: 10px 0; }
+        .btn-small { padding: 4px 10px; font-size: 14px; background: #007bff; color: white; text-decoration: none; border-radius: 3px; }
+        .btn-small:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📋 Listado de Reparaciones</h1>
+        <a href="/" class="btn">➕ Nueva reparación</a>
+        <a href="/garantias" class="btn">🛡️ Garantías</a>
+        <a href="/consulta" class="btn">🔍 Consultar ticket</a>
+        <form action="/buscar" method="GET" style="margin: 20px 0;">
+            <input type="text" name="q" placeholder="🔍 Buscar por nombre de cliente..." value="{{ busqueda }}" style="padding: 8px; width: 300px;">
+            <button type="submit" class="btn-small">Buscar</button>
+            <a href="/listado" class="btn-small">Ver todos</a>
+        </form>
+        <div style="overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Código</th>
+                    <th>Cliente</th>
+                    <th>Teléfono</th>
+                    <th>Equipo</th>
+                    <th>Marca</th>
+                    <th>Falla</th>
+                    <th>Estado</th>
+                    <th>Entrada</th>
+                    <th>Salida</th>
+                    <th>Técnico</th>
+                    <th>Foto</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in reparaciones %}
+                <tr>
+                    <td>{{ r[1] }}</td>
+                    <td>{{ r[2] }}</td>
+                    <td>{{ r[3] }}</td>
+                    <td>{{ r[4] }} </td>
+                    <td>{{ r[5] }}</td>
+                    <td>{{ r[6][:50] }}{% if r[6]|length > 50 %}...{% endif %}</td>
+                    <td class="estado-{{ r[11] }}">{{ r[11].replace('_', ' ') }}</td>
+                    <td>{{ r[9][:10] if r[9] else '' }}</td>
+                    <td>{% if r[10] %}{{ r[10][:10] }}{% else %}—{% endif %}</td>
+                    <td>{{ r[8] if r[8] else '—' }}</td>
+                    <td>
+                        {% if r[13] %}
+                            <a href="/foto/{{ r[0] }}" target="_blank" class="btn-small">📷 Ver foto</a>
+                        {% else %}
+                            <span style="color: gray;">Sin foto</span>
+                        {% endif %}
+                    </td>
+                    <td><a href="/editar/{{ r[0] }}" class="btn-small">✏️ Editar</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</body>
+</html>
+'''
+
+# HTML para garantías
+GARANTIAS_HTML = '''
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Garantías</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background: #f0f2f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; overflow-x: auto; }
+        table { border-collapse: collapse; width: 100%; min-width: 800px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background: #007bff; color: white; }
+        .btn { display: inline-block; background: #28a745; color: white; padding: 8px 15px; text-decoration: none; border-radius: 5px; margin: 10px 0; }
+        .btn-small { background: #007bff; color: white; padding: 4px 8px; text-decoration: none; border-radius: 3px; font-size: 12px; }
+        input, select { padding: 8px; margin: 5px; border-radius: 5px; border: 1px solid #ccc; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🛡️ Gestión de Garantías</h1>
+        <a href="/" class="btn">➕ Nueva reparación</a>
+        <a href="/listado" class="btn">📋 Listado</a>
+        <a href="/consulta" class="btn">🔍 Consultar</a>
+        
+        <h2>📝 Registrar garantía</h2>
+        <form method="POST" enctype="multipart/form-data">
+            <input type="text" name="codigo" placeholder="Código del ticket (E-XXX)" required>
+            <input type="text" name="tecnico" placeholder="Técnico">
+            <input type="file" name="foto" accept="image/*">
+            <button type="submit" class="btn">➕ Agregar garantía</button>
+        </form>
+        
+        <h2>📋 Listado de garantías</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Código</th>
+                    <th>Cliente</th>
+                    <th>Equipo</th>
+                    <th>Estado</th>
+                    <th>Entrada</th>
+                    <th>Foto</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for g in garantias %}
+                <tr>
+                    <td>{{ g[1] }}</td>
+                    <td>{{ g[2] }}</td>
+                    <td>{{ g[4] }} {{ g[5] }}</td>
+                    <td>{{ g[8].replace('_', ' ') }}</td>
+                    <td>{{ g[7][:10] if g[7] else '' }}</td>
+                    <td>{% if g[9] %}<a href="/foto_garantia/{{ g[0] }}" target="_blank" class="btn-small">📷 Ver</a>{% else %}—{% endif %}</td>
+                    <td><a href="/editar_garantia/{{ g[0] }}" class="btn-small">✏️ Editar</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
+'''
+
 def enviar_telegram(mensaje):
     token = "8742564082:AAGuvUN_q4NjBgUL70hcRsnCkwS-eumS6Sc"
     chat_id = "7150902056"
     try:
         requests.post(f"https://api.telegram.org/bot{token}/sendMessage", 
                       json={"chat_id": chat_id, "text": mensaje, "parse_mode": "Markdown"})
-        print("✅ Telegram enviado")
-    except Exception as e:
-        print(f"⚠️ Error en Telegram: {e}")
+    except:
+        pass
 
 def enviar_telegram_garantia_lista(codigo, cliente_nombre, equipo, marca):
     token = "8742564082:AAGuvUN_q4NjBgUL70hcRsnCkwS-eumS6Sc"
@@ -145,27 +292,22 @@ def enviar_telegram_garantia_lista(codigo, cliente_nombre, equipo, marca):
     try:
         requests.post(f"https://api.telegram.org/bot{token}/sendMessage", 
                       json={"chat_id": chat_id, "text": mensaje, "parse_mode": "Markdown"})
-        print("✅ Telegram GARANTÍA LISTO enviado")
-    except Exception as e:
-        print(f"⚠️ Error en Telegram GARANTÍA LISTO: {e}")
+    except:
+        pass
 
 def enviar_whatsapp_garantia_lista(codigo, cliente_nombre, equipo, marca, telefono_cliente):
-    """Envía WhatsApp al técnico cuando garantía está lista"""
     try:
         twilio_account_sid = os.environ.get("TWILIO_ACCOUNT_SID")
         twilio_auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
         twilio_whatsapp_from = os.environ.get("TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886")
         
-        print(f"📱 Intentando enviar WhatsApp GARANTÍA LISTA")
-        
         if not twilio_account_sid or not twilio_auth_token:
-            print("⚠️ Faltan credenciales de Twilio")
             return False
         
         twilio_client = Client(twilio_account_sid, twilio_auth_token)
         tecnico_whatsapp = "whatsapp:+584123697532"
         
-        mensaje = f"""🛡️ *GARANTÍA LISTA - PARA REENVIAR AL CLIENTE*
+        mensaje = f"""🛡️ *GARANTÍA LISTA*
 
 🔧 *Elvin Technology*
 📌 Código: *{codigo}*
@@ -174,21 +316,17 @@ def enviar_whatsapp_garantia_lista(codigo, cliente_nombre, equipo, marca, telefo
 
 🏁 El equipo en garantía ya está listo para retirar.
 
-⏰ *Horario de retiro:*
-📍 Lunes a Sábado
-🕘 9:00 am a 4:00 pm
-
+⏰ Horario: Lunes a Sábado 9am-4pm
 📞 Contacto: +58 412 3697532"""
         
-        message = twilio_client.messages.create(
+        twilio_client.messages.create(
             body=mensaje,
             from_=twilio_whatsapp_from,
             to=tecnico_whatsapp
         )
-        print(f"✅ WhatsApp GARANTÍA LISTA enviado - SID: {message.sid}")
         return True
     except Exception as e:
-        print(f"⚠️ Error enviando WhatsApp GARANTÍA LISTA: {e}")
+        print(f"⚠️ Error WhatsApp garantía: {e}")
         return False
 
 def generar_codigo():
@@ -212,14 +350,12 @@ def limpiar_numero_telefono(numero):
     if not numero:
         return None
     numero_limpio = re.sub(r'\D', '', numero)
-    
     if numero_limpio.startswith('0'):
         numero_limpio = '58' + numero_limpio[1:]
     elif len(numero_limpio) == 11 and not numero_limpio.startswith('58'):
         numero_limpio = '58' + numero_limpio
     elif len(numero_limpio) == 10:
         numero_limpio = '58' + numero_limpio
-    
     return numero_limpio
 
 @app.route("/", methods=["GET", "POST"])
@@ -228,7 +364,6 @@ def nueva():
         codigo = generar_codigo()
         ahora = datetime.datetime.now().isoformat()
         
-        # Subir foto
         foto_url = None
         if 'foto' in request.files:
             foto = request.files['foto']
@@ -241,7 +376,6 @@ def nueva():
                     )
                     upload_result = cloudinary.uploader.upload(foto)
                     foto_url = upload_result.get('secure_url')
-                    print(f"✅ Foto subida: {foto_url}")
                 except Exception as e:
                     print(f"⚠️ Error al subir foto: {e}")
         
@@ -258,7 +392,6 @@ def nueva():
         conn.commit()
         conn.close()
         
-        # Telegram nuevo ticket
         mensaje_telegram = f"🆕 *Nueva reparación*\n📌 Código: {codigo}\n👤 Cliente: {request.form.get('cliente_nombre')}\n📞 Tel: {request.form.get('cliente_telefono')}\n🔧 Equipo: {request.form.get('equipo')} {request.form.get('marca')}\n⚠️ Falla: {request.form.get('falla')}\n💰 Presupuesto: {request.form.get('presupuesto')}\n👨‍🔧 Técnico: {request.form.get('tecnico')}"
         if foto_url:
             mensaje_telegram += f"\n📸 Foto: {foto_url}"
@@ -275,41 +408,18 @@ def listado():
     cursor.execute("SELECT * FROM reparaciones ORDER BY id DESC")
     reparaciones = cursor.fetchall()
     conn.close()
-    
-    # HTML del listado (lo mismo que antes, omito por longitud)
-    return f'''
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>Listado de Reparaciones</title>
-        <style>
-            body {{ font-family: sans-serif; margin: 20px; background: #f0f2f5; }}
-            .container {{ max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; overflow-x: auto; }}
-            table {{ border-collapse: collapse; width: 100%; }}
-            th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
-            th {{ background: #007bff; color: white; }}
-            .btn {{ display: inline-block; background: #28a745; color: white; padding: 8px 15px; text-decoration: none; border-radius: 5px; margin: 10px 0; }}
-            .btn-small {{ background: #007bff; color: white; padding: 4px 8px; text-decoration: none; border-radius: 3px; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>📋 Listado de Reparaciones</h1>
-            <a href="/" class="btn">➕ Nueva</a>
-            <a href="/garantias" class="btn">🛡️ Garantías</a>
-            <a href="/consulta" class="btn">🔍 Consultar</a>
-            <table>
-                <thead><tr><th>Código</th><th>Cliente</th><th>Equipo</th><th>Estado</th><th>Acciones</th></tr></thead>
-                <tbody>
-                    {"".join(f"<tr><td>{r[1]}</td><td>{r[2]}</td><td>{r[4]}</td><td>{r[11]}</td><td><a href='/editar/{r[0]}' class='btn-small'>✏️</a></td></tr>" for r in reparaciones)}
-                </tbody>
-            </table>
-        </div>
-    </body>
-    </html>
-    '''
+    return render_template_string(LISTADO, reparaciones=reparaciones, busqueda='')
+
+@app.route("/buscar")
+@requiere_autenticacion
+def buscar():
+    busqueda = request.args.get('q', '')
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM reparaciones WHERE cliente_nombre ILIKE %s ORDER BY id DESC", (f'%{busqueda}%',))
+    resultados = cursor.fetchall()
+    conn.close()
+    return render_template_string(LISTADO, reparaciones=resultados, busqueda=busqueda)
 
 @app.route("/garantias", methods=["GET", "POST"])
 @requiere_autenticacion
@@ -318,12 +428,10 @@ def garantias():
     cursor = conn.cursor()
     
     if request.method == "POST":
-        # Crear nueva garantía
         codigo = request.form.get("codigo", "").strip().upper()
         tecnico = request.form.get("tecnico")
         ahora = datetime.datetime.now().isoformat()
         
-        # Obtener datos del ticket original
         cursor.execute("SELECT cliente_nombre, cliente_telefono, equipo, marca, falla FROM reparaciones WHERE codigo = %s", (codigo,))
         ticket = cursor.fetchone()
         
@@ -331,7 +439,6 @@ def garantias():
             conn.close()
             return '<h3>❌ Código no encontrado</h3><a href="/garantias">Volver</a>'
         
-        # Subir foto
         foto_url = None
         if 'foto' in request.files:
             foto = request.files['foto']
@@ -344,7 +451,6 @@ def garantias():
                     )
                     upload_result = cloudinary.uploader.upload(foto)
                     foto_url = upload_result.get('secure_url')
-                    print(f"✅ Foto garantía subida: {foto_url}")
                 except Exception as e:
                     print(f"⚠️ Error al subir foto garantía: {e}")
         
@@ -357,66 +463,11 @@ def garantias():
         conn.close()
         return redirect(url_for('garantias'))
     
-    # GET: mostrar listado de garantías
     cursor.execute("SELECT * FROM garantias ORDER BY id DESC")
     garantias_lista = cursor.fetchall()
     conn.close()
     
-    return f'''
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>Garantías</title>
-        <style>
-            body {{ font-family: sans-serif; margin: 20px; background: #f0f2f5; }}
-            .container {{ max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; overflow-x: auto; }}
-            table {{ border-collapse: collapse; width: 100%; }}
-            th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
-            th {{ background: #007bff; color: white; }}
-            .btn {{ display: inline-block; background: #28a745; color: white; padding: 8px 15px; text-decoration: none; border-radius: 5px; margin: 10px 0; }}
-            .btn-small {{ background: #007bff; color: white; padding: 4px 8px; text-decoration: none; border-radius: 3px; }}
-            input {{ padding: 8px; margin: 5px; }}
-            select {{ padding: 8px; margin: 5px; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>🛡️ Garantías</h1>
-            <a href="/" class="btn">➕ Nueva reparación</a>
-            <a href="/listado" class="btn">📋 Listado</a>
-            <a href="/consulta" class="btn">🔍 Consultar</a>
-            
-            <h2>📝 Nueva garantía</h2>
-            <form method="POST" enctype="multipart/form-data">
-                <input type="text" name="codigo" placeholder="Código del ticket (E-001)" required>
-                <input type="text" name="tecnico" placeholder="Técnico">
-                <input type="file" name="foto" accept="image/*">
-                <button type="submit">➕ Agregar garantía</button>
-            </form>
-            
-            <h2>📋 Listado de garantías</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Código</th>
-                        <th>Cliente</th>
-                        <th>Equipo</th>
-                        <th>Estado</th>
-                        <th>Entrada</th>
-                        <th>Foto</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {"".join(f"<tr><td>{g[1]}</td><td>{g[2]}</td><td>{g[4]}</td><td>{g[8]}</td><td>{g[7][:10] if g[7] else ''}</td><td>{'<a href=\"/foto_garantia/\"' + str(g[0]) + '\" target=\"_blank\">📷</a>' if g[9] else '—'}</td><td><a href=\"/editar_garantia/{g[0]}\" class=\"btn-small\">✏️ Editar</a></td></tr>" for g in garantias_lista)}
-                </tbody>
-            </table>
-        </div>
-    </body>
-    </html>
-    '''
+    return render_template_string(GARANTIAS_HTML, garantias=garantias_lista)
 
 @app.route("/editar_garantia/<int:id>", methods=["GET", "POST"])
 @requiere_autenticacion
@@ -425,7 +476,6 @@ def editar_garantia(id):
     cursor = conn.cursor()
     
     if request.method == "POST":
-        # Obtener estado anterior
         cursor.execute("SELECT estado, codigo, cliente_nombre, equipo, marca, cliente_telefono FROM garantias WHERE id = %s", (id,))
         garantia_anterior = cursor.fetchone()
         estado_anterior = garantia_anterior[0]
@@ -435,35 +485,27 @@ def editar_garantia(id):
         marca = garantia_anterior[4]
         cliente_telefono = garantia_anterior[5]
         
-        # Obtener nuevos datos
         estado_nuevo = request.form.get("estado")
         tecnico = request.form.get("tecnico")
         actualizado = datetime.datetime.now().isoformat()
         
-        # Si cambia a "lista", enviar notificaciones
         if estado_nuevo == 'lista' and estado_anterior != 'lista':
-            print(f"📢 Garantía {codigo} cambiada a LISTA - Enviando notificaciones")
             enviar_telegram_garantia_lista(codigo, cliente_nombre, equipo, marca)
             enviar_whatsapp_garantia_lista(codigo, cliente_nombre, equipo, marca, cliente_telefono)
         
-        # Actualizar garantía
         cursor.execute('''
             UPDATE garantias 
             SET estado = %s, tecnico = %s, actualizado_en = %s
             WHERE id = %s
         ''', (estado_nuevo, tecnico, actualizado, id))
         
-        # Si cambia a "lista", también registrar fecha_salida
         if estado_nuevo == 'lista' and estado_anterior != 'lista':
-            cursor.execute('''
-                UPDATE garantias SET fecha_salida = %s WHERE id = %s
-            ''', (actualizado, id))
+            cursor.execute('UPDATE garantias SET fecha_salida = %s WHERE id = %s', (actualizado, id))
         
         conn.commit()
         conn.close()
         return redirect(url_for('garantias'))
     
-    # GET: mostrar formulario de edición
     cursor.execute("SELECT * FROM garantias WHERE id = %s", (id,))
     garantia = cursor.fetchone()
     conn.close()
@@ -481,7 +523,7 @@ def editar_garantia(id):
         <style>
             body {{ font-family: sans-serif; margin: 20px; background: #f0f2f5; }}
             .container {{ max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; }}
-            input, textarea, select {{ display: block; margin: 10px 0; padding: 10px; width: 100%; max-width: 400px; border-radius: 5px; border: 1px solid #ccc; }}
+            input, select {{ display: block; margin: 10px 0; padding: 10px; width: 100%; max-width: 400px; border-radius: 5px; border: 1px solid #ccc; }}
             button {{ background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; }}
             .btn {{ display: inline-block; background: #28a745; color: white; padding: 8px 15px; text-decoration: none; border-radius: 5px; margin-top: 20px; }}
         </style>
@@ -494,7 +536,7 @@ def editar_garantia(id):
             <label>Cliente:</label>
             <input type="text" value="{garantia[2]}" disabled>
             <label>Equipo:</label>
-            <input type="text" value="{garantia[4]}" disabled>
+            <input type="text" value="{garantia[4]} {garantia[5]}" disabled>
             <form method="POST">
                 <label>Técnico:</label>
                 <input type="text" name="tecnico" value="{garantia[6] if garantia[6] else ''}">
@@ -521,8 +563,20 @@ def foto_garantia(id):
     conn.close()
     
     if resultado and resultado[0]:
-        foto_url = resultado[0]
-        return f'<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Foto</title><style>body {{ display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: #f0f2f5; }} img {{ max-width: 100%; max-height: 100vh; }}</style></head><body><img src="{foto_url}" alt="Foto del equipo en garantía"></body></html>'
+        return f'<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Foto</title><style>body {{ display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: #f0f2f5; }} img {{ max-width: 100%; max-height: 100vh; }}</style></head><body><img src="{resultado[0]}" alt="Foto garantía"></body></html>'
+    else:
+        return "Sin foto", 404
+
+@app.route("/foto/<int:id>")
+def foto(id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT foto_url FROM reparaciones WHERE id = %s", (id,))
+    resultado = cursor.fetchone()
+    conn.close()
+    
+    if resultado and resultado[0]:
+        return f'<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Foto</title><style>body {{ display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: #f0f2f5; }} img {{ max-width: 100%; max-height: 100vh; }}</style></head><body><img src="{resultado[0]}" alt="Foto del equipo"></body></html>'
     else:
         return "Sin foto", 404
 
@@ -543,8 +597,40 @@ def consulta():
                 cursor.execute("UPDATE reparaciones SET estado = 'lista', actualizado_en = %s WHERE codigo = %s AND estado = 'en_reparacion'", 
                               (datetime.datetime.now().isoformat(), codigo))
                 conn.commit()
-                enviar_telegram_listo(ticket[0], ticket[1], ticket[2], ticket[3])
-                enviar_whatsapp_listo(ticket[0], ticket[1], ticket[2], ticket[3], ticket[2])
+                
+                # Enviar notificaciones
+                token = "8742564082:AAGuvUN_q4NjBgUL70hcRsnCkwS-eumS6Sc"
+                chat_id = "7150902056"
+                mensaje_telegram = f"✅ *EQUIPO LISTO*\n📌 Código: {ticket[0]}\n👤 Cliente: {ticket[1]}\n🔧 Equipo: {ticket[3]} {ticket[4]}\n\n🏁 El equipo está listo para ser entregado al cliente."
+                try:
+                    requests.post(f"https://api.telegram.org/bot{token}/sendMessage", 
+                                  json={"chat_id": chat_id, "text": mensaje_telegram, "parse_mode": "Markdown"})
+                except:
+                    pass
+                
+                try:
+                    twilio_account_sid = os.environ.get("TWILIO_ACCOUNT_SID")
+                    twilio_auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
+                    twilio_whatsapp_from = os.environ.get("TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886")
+                    if twilio_account_sid and twilio_auth_token:
+                        twilio_client = Client(twilio_account_sid, twilio_auth_token)
+                        tecnico_whatsapp = "whatsapp:+584123697532"
+                        mensaje_whatsapp = f"""✅ *EQUIPO LISTO*
+
+🔧 *Elvin Technology*
+📌 Código: *{ticket[0]}*
+👤 Cliente: {ticket[1]}
+🔧 Equipo: {ticket[3]} {ticket[4]}
+
+🏁 El equipo ya está listo para retirar.
+📞 Contacto: +58 412 3697532"""
+                        twilio_client.messages.create(
+                            body=mensaje_whatsapp,
+                            from_=twilio_whatsapp_from,
+                            to=tecnico_whatsapp
+                        )
+                except:
+                    pass
             
             conn.close()
             return '<h3>✅ Ticket marcado como LISTO</h3><a href="/consulta">Volver</a>'
@@ -636,22 +722,13 @@ def editar(id):
         estado_nuevo = request.form.get("estado")
         actualizado = datetime.datetime.now().isoformat()
         
-        # Obtener estado anterior
-        cursor.execute("SELECT estado, codigo, cliente_nombre, cliente_telefono, equipo, marca FROM reparaciones WHERE id = %s", (id,))
-        resultado = cursor.fetchone()
-        estado_anterior = resultado[0]
-        codigo = resultado[1]
-        cliente_nombre = resultado[2]
-        cliente_telefono = resultado[3]
-        equipo_old = resultado[4]
-        marca_old = resultado[5]
+        cursor.execute("SELECT estado FROM reparaciones WHERE id = %s", (id,))
+        estado_anterior = cursor.fetchone()[0]
         
-        # Si cambia a "entregado", registrar fecha_salida
         fecha_salida = None
         if estado_nuevo == 'entregado' and estado_anterior != 'entregado':
             fecha_salida = datetime.datetime.now().isoformat()
             print(f"✅ Ticket {id} marcado como ENTREGADO - Fecha salida: {fecha_salida}")
-            enviar_telegram_entregado(codigo, cliente_nombre, equipo_old, marca_old, cliente_telefono, fecha_salida)
         
         if fecha_salida:
             cursor.execute('''
@@ -729,112 +806,6 @@ def editar(id):
     </body>
     </html>
     '''
-
-def enviar_telegram_listo(codigo, cliente_nombre, equipo, marca):
-    token = "8742564082:AAGuvUN_q4NjBgUL70hcRsnCkwS-eumS6Sc"
-    chat_id = "7150902056"
-    mensaje = f"✅ *EQUIPO LISTO*\n📌 Código: {codigo}\n👤 Cliente: {cliente_nombre}\n🔧 Equipo: {equipo} {marca}\n\n🏁 El equipo está listo para ser entregado al cliente."
-    try:
-        requests.post(f"https://api.telegram.org/bot{token}/sendMessage", 
-                      json={"chat_id": chat_id, "text": mensaje, "parse_mode": "Markdown"})
-        print("✅ Telegram LISTO enviado")
-    except Exception as e:
-        print(f"⚠️ Error en Telegram LISTO: {e}")
-
-def enviar_whatsapp_listo(codigo, cliente_nombre, equipo, marca, telefono_cliente):
-    try:
-        twilio_account_sid = os.environ.get("TWILIO_ACCOUNT_SID")
-        twilio_auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
-        twilio_whatsapp_from = os.environ.get("TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886")
-        
-        if not twilio_account_sid or not twilio_auth_token:
-            print("⚠️ Faltan credenciales de Twilio")
-            return False
-        
-        twilio_client = Client(twilio_account_sid, twilio_auth_token)
-        tecnico_whatsapp = "whatsapp:+584123697532"
-        
-        mensaje = f"""✅ *EQUIPO LISTO*
-
-🔧 *Elvin Technology*
-📌 Código: *{codigo}*
-👤 Cliente: {cliente_nombre}
-🔧 Equipo: {equipo} {marca}
-
-🏁 El equipo ya está listo para retirar.
-📞 Contacto: +58 412 3697532"""
-        
-        message = twilio_client.messages.create(
-            body=mensaje,
-            from_=twilio_whatsapp_from,
-            to=tecnico_whatsapp
-        )
-        print(f"✅ WhatsApp de LISTO enviado - SID: {message.sid}")
-        return True
-    except Exception as e:
-        print(f"⚠️ Error enviando WhatsApp de LISTO: {e}")
-        return False
-
-def enviar_telegram_entregado(codigo, cliente_nombre, equipo, marca, telefono_cliente, fecha_entrega):
-    fecha_entrega_obj = datetime.datetime.strptime(fecha_entrega[:10], "%Y-%m-%d")
-    fecha_fin = fecha_entrega_obj + datetime.timedelta(days=60)
-    fecha_fin_str = fecha_fin.strftime("%d/%m/%Y")
-    fecha_entrega_str = fecha_entrega_obj.strftime("%d/%m/%Y")
-    
-    token = "8742564082:AAGuvUN_q4NjBgUL70hcRsnCkwS-eumS6Sc"
-    chat_id = "7150902056"
-    mensaje = f"✅ *EQUIPO ENTREGADO - GARANTÍA 2 MESES*\n📌 Código: {codigo}\n👤 Cliente: {cliente_nombre}\n🔧 Equipo: {equipo} {marca}\n📅 Entrega: {fecha_entrega_str}\n🛡️ Garantía hasta: {fecha_fin_str}"
-    try:
-        requests.post(f"https://api.telegram.org/bot{token}/sendMessage", 
-                      json={"chat_id": chat_id, "text": mensaje, "parse_mode": "Markdown"})
-        print("✅ Telegram ENTREGADO enviado")
-    except Exception as e:
-        print(f"⚠️ Error en Telegram ENTREGADO: {e}")
-
-def enviar_whatsapp_entregado(codigo, cliente_nombre, equipo, marca, telefono_cliente, fecha_entrega):
-    try:
-        twilio_account_sid = os.environ.get("TWILIO_ACCOUNT_SID")
-        twilio_auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
-        twilio_whatsapp_from = os.environ.get("TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886")
-        
-        if not twilio_account_sid or not twilio_auth_token:
-            print("⚠️ Faltan credenciales de Twilio")
-            return False
-        
-        twilio_client = Client(twilio_account_sid, twilio_auth_token)
-        tecnico_whatsapp = "whatsapp:+584123697532"
-        
-        fecha_entrega_obj = datetime.datetime.strptime(fecha_entrega[:10], "%Y-%m-%d")
-        fecha_fin = fecha_entrega_obj + datetime.timedelta(days=60)
-        fecha_fin_str = fecha_fin.strftime("%d/%m/%Y")
-        fecha_entrega_str = fecha_entrega_obj.strftime("%d/%m/%Y")
-        
-        mensaje = f"""✅ *EQUIPO ENTREGADO - GARANTÍA ACTIVADA*
-
-🔧 *Elvin Technology*
-📌 Código: *{codigo}*
-👤 Cliente: {cliente_nombre}
-🔧 Equipo: {equipo} {marca}
-
-📅 *Fecha de entrega:* {fecha_entrega_str}
-
-🛡️ *GARANTÍA: 2 MESES*
-Válida hasta: {fecha_fin_str}
-
-Cubre: mano de obra y repuestos (excepto mal uso)
-
-📞 Contacto: +58 412 3697532"""
-        
-        message = twilio_client.messages.create(
-            body=mensaje,
-            from_=twilio_whatsapp_from,
-            to=tecnico_whatsapp
-        )
-        print(f"✅ WhatsApp de ENTREGADO enviado - SID: {message.sid}")
-        return True
-    except Exception as e:
-        print(f"⚠️ Error enviando WhatsApp de ENTREGADO: {e}")
-        return False
 
 if __name__ == "__main__":
     init_db()
