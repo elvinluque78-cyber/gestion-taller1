@@ -214,7 +214,7 @@ LISTADO = '''
                 </tr>
                 {% endfor %}
             </tbody>
-        </tr>
+        </table>
         </div>
     </div>
 </body>
@@ -304,7 +304,7 @@ def nueva():
         conn.commit()
         conn.close()
         
-        # MENSAJES NUEVO TICKET (bonitos y completos)
+        # MENSAJES NUEVO TICKET
         cliente = request.form['cliente_nombre']
         telefono = request.form['cliente_telefono']
         equipo = request.form['equipo']
@@ -530,6 +530,7 @@ def editar(id):
         tecnico = request.form.get("tecnico")
         actualizado = datetime.datetime.now().isoformat()
         
+        # ENTREGADO (con garantía de 2 meses, sin "REENVÍA")
         if estado_nuevo == 'entregado' and estado_anterior != 'entregado':
             fecha_salida = actualizado
             fecha_entrega_obj = datetime.datetime.strptime(fecha_salida[:10], "%Y-%m-%d")
@@ -552,6 +553,7 @@ def editar(id):
 📞 *Contacto:* +58 412 3697532"""
             enviar_telegram(msg_telegram)
             
+            # WhatsApp: mensaje completo sin "REENVÍA ESTE MENSAJE"
             msg_whatsapp = f"""✅ *EQUIPO ENTREGADO - GARANTÍA 2 MESES*
 
 🔧 *Elvin Technology*
@@ -565,13 +567,13 @@ def editar(id):
 
 Cubre: mano de obra y repuestos (excepto mal uso o daños externos)
 
-📞 *Contacto:* +58 412 3697532
-
-✅ *REENVÍA ESTE MENSAJE AL CLIENTE*"""
+📞 *Contacto:* +58 412 3697532"""
             enviar_whatsapp(msg_whatsapp)
             
             cur.execute("UPDATE reparaciones SET equipo=%s, marca=%s, falla=%s, presupuesto=%s, tecnico=%s, estado=%s, actualizado_en=%s, fecha_salida=%s WHERE id=%s",
                        (equipo, marca, falla, presupuesto, tecnico, estado_nuevo, actualizado, fecha_salida, id))
+        
+        # LISTO
         elif estado_nuevo == 'lista' and estado_anterior != 'lista':
             msg_telegram = f"""✅ *EQUIPO LISTO - ELVIN TECHNOLOGY*
 
@@ -604,9 +606,12 @@ Cubre: mano de obra y repuestos (excepto mal uso o daños externos)
             
             cur.execute("UPDATE reparaciones SET equipo=%s, marca=%s, falla=%s, presupuesto=%s, tecnico=%s, estado=%s, actualizado_en=%s WHERE id=%s",
                        (equipo, marca, falla, presupuesto, tecnico, estado_nuevo, actualizado, id))
+        
+        # OTROS ESTADOS (sin notificaciones)
         else:
             cur.execute("UPDATE reparaciones SET equipo=%s, marca=%s, falla=%s, presupuesto=%s, tecnico=%s, estado=%s, actualizado_en=%s WHERE id=%s",
                        (equipo, marca, falla, presupuesto, tecnico, estado_nuevo, actualizado, id))
+        
         conn.commit()
         conn.close()
         return redirect(url_for('listado'))
