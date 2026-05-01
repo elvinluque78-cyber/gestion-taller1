@@ -1,4 +1,4 @@
-kfrom flask import Flask, request, render_template_string, redirect, url_for
+from flask import Flask, request, render_template_string, redirect, url_for
 import psycopg2
 import datetime
 import requests
