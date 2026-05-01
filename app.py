@@ -176,7 +176,7 @@ LISTADO = '''
             <a href="/listado" class="btn-small" style="background: #dc3545;">Ver todos</a>
         </form>
         <div style="overflow-x: auto;">
-        <table>
+        </td>
             <thead>
                 <tr>
                     <th>Código</th><th>Cliente</th><th>Teléfono</th><th>Equipo</th><th>Marca</th><th>Falla</th>
@@ -328,6 +328,7 @@ def consulta():
         conn = get_db()
         cur = conn.cursor()
         
+        # LISTO
         if accion == "cambiar_estado":
             cur.execute("SELECT codigo, cliente_nombre, equipo, marca FROM reparaciones WHERE codigo = %s", (codigo,))
             t = cur.fetchone()
@@ -341,6 +342,7 @@ def consulta():
             conn.close()
             return '<div style="text-align:center;margin-top:50px;"><h3>✅ Ticket marcado como LISTO</h3><a href="/consulta">Volver</a></div>'
         
+        # GARANTÍA
         if accion == "marcar_garantia":
             cur.execute("SELECT codigo, cliente_nombre, cliente_telefono, equipo, marca, falla, foto_url FROM reparaciones WHERE codigo = %s", (codigo,))
             t = cur.fetchone()
@@ -348,8 +350,8 @@ def consulta():
                 cur.execute("UPDATE reparaciones SET estado = 'en_garantia', actualizado_en = %s WHERE codigo = %s",
                            (datetime.datetime.now().isoformat(), codigo))
                 ahora = datetime.datetime.now().isoformat()
-                cur.execute('''INSERT INTO garantias
-                    (codigo, cliente_nombre, cliente_telefono, equipo, marca, falla_original,
+                cur.execute('''INSERT INTO garantias 
+                    (codigo, cliente_nombre, cliente_telefono, equipo, marca, falla_original, 
                      fecha_entrada_garantia, estado_garantia, foto_url, creado_en, actualizado_en)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''',
                     (t[0], t[1], t[2], t[3], t[4], t[5], ahora, 'en_reparacion', t[6], ahora, ahora))
@@ -360,12 +362,12 @@ def consulta():
             conn.close()
             return '<div style="text-align:center;margin-top:50px;"><h3>🛡️ Ticket marcado como GARANTÍA</h3><a href="/consulta">Volver</a></div>'
         
+        # Mostrar ticket
         cur.execute("SELECT id, codigo, estado, foto_url, cliente_nombre, equipo, marca FROM reparaciones WHERE codigo = %s", (codigo,))
         res = cur.fetchone()
         conn.close()
         if res and res[3]:
             _, cod, estado, foto, cliente, equipo, marca = res
-            # 🎯 BOTONES VISIBLES SIEMPRE (excepto si ya está en garantía)
             mostrar_listo = True
             mostrar_garantia = estado != 'en_garantia'
             
