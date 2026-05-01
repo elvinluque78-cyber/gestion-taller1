@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template_string, redirect, url_for
+kfrom flask import Flask, request, render_template_string, redirect, url_for
 import psycopg2
 import datetime
 import requests
@@ -300,10 +300,10 @@ LISTADO = '''
                         <td>{{ r[6][:40] }}{% if r[6]|length > 40 %}...{% endif %}</td>
                         <td class="estado-{{ r[11] }}">{{ r[11].replace('_', ' ') }}</td>
                         <td>{{ r[9][:10] if r[9] else '' }}</td>
-                        <td>{% if r[10] %}{{ r[10][:10] }}{% else %}{% endif %}</td>
-                        <td>{{ r[8] if r[8] else '' }}</td>
-                        <td>{% if r[13] %}<a href="/foto/{{ r[0] }}" target="_blank" class="foto-link"> Ver</a>{% else %}{% endif %}</td>
-                        <td><a href="/editar/{{ r[0] }}" class="btn-small"> Editar</a></td>
+                        <td>{% if r[10] %}{{ r[10][:10] }}{% else %}—{% endif %}</td>
+                        <td>{{ r[8] if r[8] else '—' }}</td>
+                        <td>{% if r[13] %}<a href="/foto/{{ r[0] }}" target="_blank" class="foto-link">📷 Ver</a>{% else %}<span style="color: gray;">—</span>{% endif %}</td>
+                        <td><a href="/editar/{{ r[0] }}" class="btn-small">✏️ Editar</a></td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -313,7 +313,6 @@ LISTADO = '''
 </body>
 </html>
 '''
-
 
 # HTML para el formulario de edición
 EDITAR_FORMULARIO = '''
@@ -440,7 +439,7 @@ def enviar_telegram_listo(codigo, cliente_nombre, equipo, marca):
         print(f"⚠️ Error en Telegram LISTO: {e}")
 
 def enviar_whatsapp_listo(codigo, cliente_nombre, equipo, marca, telefono_cliente):
-    """Envía WhatsApp al técnico con mensaje listo para REENVIAR al cliente"""
+    """Envía WhatsApp al técnico cuando un equipo está listo"""
     try:
         twilio_account_sid = os.environ.get("TWILIO_ACCOUNT_SID")
         twilio_auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
@@ -550,13 +549,13 @@ def nueva():
         conn.commit()
         conn.close()
         
-        # Telegram
+        # Telegram (nuevo ticket)
         mensaje_telegram = f"🆕 *Nueva reparación*\n📌 Código: {codigo}\n👤 Cliente: {request.form.get('cliente_nombre')}\n📞 Tel: {request.form.get('cliente_telefono')}\n🔧 Equipo: {request.form.get('equipo')} {request.form.get('marca')}\n⚠️ Falla: {request.form.get('falla')}\n💰 Presupuesto: {request.form.get('presupuesto')}\n👨‍🔧 Técnico: {request.form.get('tecnico')}"
         if foto_url:
             mensaje_telegram += f"\n📸 Foto: {foto_url}"
         enviar_telegram(mensaje_telegram)
         
-        # WhatsApp al cliente
+        # WhatsApp - SOLO AL TÉCNICO (para que él reenvíe al cliente)
         try:
             twilio_account_sid = os.environ.get("TWILIO_ACCOUNT_SID")
             twilio_auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
@@ -564,27 +563,32 @@ def nueva():
             
             if twilio_account_sid and twilio_auth_token:
                 twilio_client = Client(twilio_account_sid, twilio_auth_token)
-                numero_cliente = limpiar_numero_telefono(request.form.get('cliente_telefono'))
-                if numero_cliente:
-                    cliente_whatsapp = f"whatsapp:+{numero_cliente}"
-                    mensaje_whatsapp = f"""🧾 *Ticket de ingreso – Elvin Technology*
-📌 N° de ticket: *{codigo}*
+                # El mensaje se envía al TÉCNICO (tú), no al cliente
+                tecnico_whatsapp = "whatsapp:+584123697532"
+                
+                mensaje_whatsapp = f"""🧾 *NUEVO TICKET - PARA REENVIAR AL CLIENTE*
+
+🔧 *Elvin Technology*
+📌 Código: *{codigo}*
 👤 Cliente: {request.form.get('cliente_nombre')}
+📞 Teléfono: {request.form.get('cliente_telefono')}
 🔧 Equipo: {request.form.get('equipo')} {request.form.get('marca')}
 ⚠️ Falla: {request.form.get('falla')}
 💰 Presupuesto: {request.form.get('presupuesto')}
 📅 Fecha ingreso: {ahora[:10]}
 
-📞 Contacto taller: +58 412 3697532
+📸 Foto: {foto_url if foto_url else 'Sin foto'}
 
-Gracias por confiar en nosotros."""
-                    
-                    twilio_client.messages.create(
-                        body=mensaje_whatsapp,
-                        from_=twilio_whatsapp_from,
-                        to=cliente_whatsapp
-                    )
-                    print(f"✅ WhatsApp enviado a {cliente_whatsapp}")
+📞 Taller: +58 412 3697532
+
+✅ REENVÍA ESTE MENSAJE AL CLIENTE"""
+                
+                twilio_client.messages.create(
+                    body=mensaje_whatsapp,
+                    from_=twilio_whatsapp_from,
+                    to=tecnico_whatsapp
+                )
+                print(f"✅ WhatsApp enviado al técnico para reenviar")
         except Exception as e:
             print(f"⚠️ Error en WhatsApp: {e}")
         
