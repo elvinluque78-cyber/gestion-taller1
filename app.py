@@ -34,25 +34,32 @@ def init_db():
         cliente_nombre TEXT NOT NULL,
         cliente_telefono TEXT NOT NULL,
         equipo TEXT NOT NULL,
-        marca TEXT, falla TEXT, presupuesto REAL, tecnico TEXT,
+        marca TEXT,
+        falla TEXT,
+        presupuesto REAL,
+        tecnico TEXT,
         fecha_entrada TEXT NOT NULL,
         fecha_salida TEXT,
         estado TEXT NOT NULL,
         foto_url TEXT,
-        creado_en TEXT, actualizado_en TEXT
+        creado_en TEXT,
+        actualizado_en TEXT
     )''')
     cur.execute('''CREATE TABLE IF NOT EXISTS garantias (
         id SERIAL PRIMARY KEY,
         codigo TEXT NOT NULL,
         cliente_nombre TEXT NOT NULL,
         cliente_telefono TEXT NOT NULL,
-        equipo TEXT NOT NULL, marca TEXT, falla_original TEXT,
+        equipo TEXT NOT NULL,
+        marca TEXT,
+        falla_original TEXT,
         tecnico TEXT,
         fecha_entrada_garantia TEXT NOT NULL,
         fecha_salida_garantia TEXT,
         estado_garantia TEXT NOT NULL,
         foto_url TEXT,
-        creado_en TEXT, actualizado_en TEXT
+        creado_en TEXT,
+        actualizado_en TEXT
     )''')
     conn.commit()
     conn.close()
@@ -102,8 +109,9 @@ FORMULARIO = '''
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Nueva Reparación</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; margin: 20px; }
-        .container { max-width: 650px; margin: auto; background: white; padding: 40px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; margin: 0; padding: 20px; }
+        .container { max-width: 650px; margin: 0 auto; background: white; padding: 40px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
         h1 { color: #1a1a2e; text-align: center; margin-bottom: 30px; font-size: 28px; }
         input, textarea, select { width: 100%; padding: 14px; margin: 12px 0; border-radius: 10px; border: 1px solid #ddd; font-size: 16px; }
         button { background: linear-gradient(135deg, #007bff, #0056b3); color: white; padding: 14px 28px; border: none; border-radius: 50px; cursor: pointer; font-size: 18px; width: 100%; font-weight: bold; }
@@ -141,67 +149,71 @@ LISTADO = '''
 <html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=yes">
     <title>Listado de Reparaciones</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; margin: 20px; }
-        .container { max-width: 1400px; margin: auto; background: white; padding: 25px; border-radius: 20px; overflow-x: auto; }
-        h1 { color: #1a1a2e; margin-bottom: 20px; font-size: 28px; }
-        table { width: 100%; border-collapse: collapse; font-size: 15px; }
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; margin: 0; padding: 20px; }
+        .container { max-width: 1400px; margin: 0 auto; background: white; padding: 25px; border-radius: 20px; overflow-x: auto; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        h1 { color: #1a1a2e; margin: 0 0 20px 0; font-size: 28px; }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 1000px; }
         th, td { border: 1px solid #ddd; padding: 12px 10px; text-align: left; }
-        th { background: linear-gradient(135deg, #007bff, #0056b3); color: white; font-weight: bold; }
+        th { background: linear-gradient(135deg, #007bff, #0056b3); color: white; font-weight: bold; position: sticky; top: 0; }
         tr:nth-child(even) { background: #f8f9fa; }
+        tr:hover { background: #f1f1f1; }
         .estado-en_reparacion { color: #ff9800; font-weight: bold; }
         .estado-espera_repuesto { color: #f44336; font-weight: bold; }
         .estado-lista { color: #4caf50; font-weight: bold; }
         .estado-entregado { color: #2196f3; font-weight: bold; }
         .estado-en_garantia { color: #9c27b0; font-weight: bold; }
         .btn { display: inline-block; background: #28a745; color: white; padding: 10px 20px; text-decoration: none; border-radius: 50px; margin: 5px; font-size: 14px; }
-        .btn-small { padding: 6px 12px; font-size: 12px; background: #007bff; color: white; text-decoration: none; border-radius: 20px; }
+        .btn-small { padding: 6px 12px; font-size: 12px; background: #007bff; color: white; text-decoration: none; border-radius: 20px; display: inline-block; }
+        .btn-small:hover { background: #0056b3; }
         .buscar-form { margin: 20px 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
         .buscar-form input { padding: 10px 15px; border: 1px solid #ddd; border-radius: 25px; width: 250px; font-size: 14px; }
+        .btn-group { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>📋 Listado de Reparaciones</h1>
-        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;">
+        <div class="btn-group">
             <a href="/" class="btn">➕ Nueva reparación</a>
             <a href="/garantias" class="btn">🛡️ Garantías</a>
             <a href="/consulta" class="btn">🔍 Consultar ticket</a>
         </div>
         <form action="/buscar" method="GET" class="buscar-form">
             <input type="text" name="q" placeholder="🔍 Buscar por nombre de cliente..." value="{{ busqueda }}">
-            <button type="submit" class="btn-small" style="background: #007bff;">Buscar</button>
+            <button type="submit" class="btn-small" style="background: #007bff; border: none; cursor: pointer;">Buscar</button>
             <a href="/listado" class="btn-small" style="background: #dc3545;">Ver todos</a>
         </form>
         <div style="overflow-x: auto;">
-        </td>
-            <thead>
-                <tr>
-                    <th>Código</th><th>Cliente</th><th>Teléfono</th><th>Equipo</th><th>Marca</th><th>Falla</th>
-                    <th>Estado</th><th>Entrada</th><th>Salida</th><th>Técnico</th><th>Foto</th><th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for r in reparaciones %}
-                <tr>
-                    <td>{{ r[1] }}</td>
-                    <td>{{ r[2] }}</td>
-                    <td>{{ r[3] }}</td>
-                    <td>{{ r[4] }}</td>
-                    <td>{{ r[5] if r[5] else '' }}</td>
-                    <td>{{ r[6][:50] if r[6] else '' }}{% if r[6] and r[6]|length > 50 %}...{% endif %}</td>
-                    <td class="estado-{{ r[11] }}">{{ r[11].replace('_', ' ') }}</td>
-                    <td>{{ r[9][:10] if r[9] else '' }}</td>
-                    <td>{% if r[10] %}{{ r[10][:10] }}{% else %}—{% endif %}</td>
-                    <td>{{ r[8] if r[8] else '—' }}</td>
-                    <td>{% if r[13] %}<a href="/foto/{{ r[0] }}" target="_blank" class="btn-small">📷 Ver</a>{% else %}—{% endif %}</td>
-                    <td><a href="/editar/{{ r[0] }}" class="btn-small">✏️ Editar</a></td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Código</th><th>Cliente</th><th>Teléfono</th><th>Equipo</th><th>Marca</th><th>Falla</th>
+                        <th>Estado</th><th>Entrada</th><th>Salida</th><th>Técnico</th><th>Foto</th><th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in reparaciones %}
+                    <tr>
+                        <td>{{ r[1] }}</td>
+                        <td>{{ r[2] }}</td>
+                        <td>{{ r[3] }}</td>
+                        <td>{{ r[4] }}</td>
+                        <td>{{ r[5] if r[5] else '' }}</td>
+                        <td>{{ r[6][:50] if r[6] else '' }}{% if r[6] and r[6]|length > 50 %}...{% endif %}</td>
+                        <td class="estado-{{ r[11] }}">{{ r[11].replace('_', ' ') }}</td>
+                        <td>{{ r[9][:10] if r[9] else '' }}</td>
+                        <td>{% if r[10] %}{{ r[10][:10] }}{% else %}—{% endif %}</td>
+                        <td>{{ r[8] if r[8] else '—' }}</td>
+                        <td>{% if r[13] %}<a href="/foto/{{ r[0] }}" target="_blank" class="btn-small">📷 Ver</a>{% else %}—{% endif %}</td>
+                        <td><a href="/editar/{{ r[0] }}" class="btn-small">✏️ Editar</a></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
 </body>
@@ -213,23 +225,25 @@ GARANTIAS_HTML = '''
 <html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=yes">
     <title>Garantías</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; margin: 20px; }
-        .container { max-width: 1300px; margin: auto; background: white; padding: 25px; border-radius: 20px; overflow-x: auto; }
-        h1 { color: #9c27b0; margin-bottom: 20px; font-size: 28px; }
-        table { width: 100%; border-collapse: collapse; font-size: 15px; }
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; margin: 0; padding: 20px; }
+        .container { max-width: 1300px; margin: 0 auto; background: white; padding: 25px; border-radius: 20px; overflow-x: auto; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        h1 { color: #9c27b0; margin: 0 0 20px 0; font-size: 28px; }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 900px; }
         th, td { border: 1px solid #ddd; padding: 12px 10px; text-align: left; }
         th { background: linear-gradient(135deg, #9c27b0, #7b1fa2); color: white; }
-        .btn { display: inline-block; background: #28a745; color: white; padding: 10px 20px; text-decoration: none; border-radius: 50px; margin: 5px; }
-        .btn-small { padding: 6px 12px; font-size: 12px; background: #9c27b0; color: white; text-decoration: none; border-radius: 20px; }
+        .btn { display: inline-block; background: #28a745; color: white; padding: 10px 20px; text-decoration: none; border-radius: 50px; margin: 5px; font-size: 14px; }
+        .btn-small { padding: 6px 12px; font-size: 12px; background: #9c27b0; color: white; text-decoration: none; border-radius: 20px; display: inline-block; }
+        .btn-group { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🛡️ Gestión de Garantías</h1>
-        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;">
+        <div class="btn-group">
             <a href="/" class="btn">➕ Nueva reparación</a>
             <a href="/listado" class="btn">📋 Listado</a>
             <a href="/consulta" class="btn">🔍 Consultar ticket</a>
@@ -379,6 +393,7 @@ def consulta():
                 <meta name="viewport" content="width=device-width, initial-scale=1">
                 <title>Ticket {cod}</title>
                 <style>
+                    * {{ box-sizing: border-box; }}
                     body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; }}
                     .card {{ max-width: 650px; width: 100%; background: white; border-radius: 30px; padding: 40px; box-shadow: 0 20px 40px rgba(0,0,0,0.2); text-align: center; }}
                     h1 {{ color: #1a1a2e; margin-bottom: 20px; font-size: 32px; }}
@@ -431,8 +446,9 @@ def consulta():
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>Consultar Ticket</title>
         <style>
+            * { box-sizing: border-box; }
             body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; justify-content: center; align-items: center; }
-            .container { max-width: 500px; width: 100%; background: white; padding: 45px; border-radius: 30px; box-shadow: 0 20px 40px rgba(0,0,0,0.2); text-align: center; }
+            .container { max-width: 500px; width: 100%; background: white; padding: 45px; border-radius: 30px; box-shadow: 0 20px 40px rgba(0,0,0,0.2); text-align: center; margin: 20px; }
             h1 { color: #1a1a2e; margin-bottom: 30px; font-size: 32px; }
             input { width: 90%; padding: 15px; margin: 20px 0; border: 2px solid #e0e0e0; border-radius: 50px; font-size: 16px; text-align: center; }
             input:focus { outline: none; border-color: #667eea; }
@@ -486,11 +502,12 @@ def editar_garantia(id):
         <meta charset="UTF-8">
         <title>Editar Garantía</title>
         <style>
-            body {{ font-family: 'Segoe UI', sans-serif; margin: 20px; background: #f0f2f5; }}
-            .container {{ max-width: 550px; margin: auto; background: white; padding: 30px; border-radius: 20px; }}
+            * {{ box-sizing: border-box; }}
+            body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: #f0f2f5; min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; }}
+            .container {{ max-width: 550px; width: 100%; margin: auto; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }}
             input, select {{ display: block; margin: 15px 0; padding: 12px; width: 100%; border-radius: 10px; border: 1px solid #ddd; font-size: 16px; }}
-            button {{ background: #9c27b0; color: white; padding: 12px 24px; border: none; border-radius: 50px; cursor: pointer; width: 100%; font-size: 16px; }}
-            .btn {{ display: inline-block; background: #6c757d; color: white; padding: 10px 20px; text-decoration: none; border-radius: 50px; margin-top: 15px; text-align: center; }}
+            button {{ background: #9c27b0; color: white; padding: 12px 24px; border: none; border-radius: 50px; cursor: pointer; width: 100%; font-size: 16px; font-weight: bold; }}
+            .btn {{ display: inline-block; background: #6c757d; color: white; padding: 10px 20px; text-decoration: none; border-radius: 50px; margin-top: 15px; text-align: center; width: 100%; }}
         </style>
     </head>
     <body>
@@ -521,7 +538,7 @@ def foto(id):
     res = cur.fetchone()
     conn.close()
     if res and res[0]:
-        return f'<html><body style="display:flex;justify-content:center;align-items:center;min-height:100vh;"><img src="{res[0]}" style="max-width:90%;border-radius:20px;"></body></html>'
+        return f'<html><body style="display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;"><img src="{res[0]}" style="max-width:90%;max-height:90vh;border-radius:20px;"></body></html>'
     return "Sin foto", 404
 
 @app.route("/foto_garantia/<int:id>")
@@ -532,7 +549,7 @@ def foto_garantia(id):
     res = cur.fetchone()
     conn.close()
     if res and res[0]:
-        return f'<html><body style="display:flex;justify-content:center;align-items:center;min-height:100vh;"><img src="{res[0]}" style="max-width:90%;border-radius:20px;"></body></html>'
+        return f'<html><body style="display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;"><img src="{res[0]}" style="max-width:90%;max-height:90vh;border-radius:20px;"></body></html>'
     return "Sin foto", 404
 
 @app.route("/editar/<int:id>", methods=["GET", "POST"])
@@ -559,11 +576,12 @@ def editar(id):
         <meta charset="UTF-8">
         <title>Editar Reparación</title>
         <style>
-            body {{ font-family: 'Segoe UI', sans-serif; margin: 20px; background: #f0f2f5; }}
-            .container {{ max-width: 600px; margin: auto; background: white; padding: 30px; border-radius: 20px; }}
+            * {{ box-sizing: border-box; }}
+            body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: #f0f2f5; min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; }}
+            .container {{ max-width: 600px; width: 100%; margin: auto; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }}
             input, textarea, select {{ display: block; margin: 15px 0; padding: 12px; width: 100%; border-radius: 10px; border: 1px solid #ddd; font-size: 16px; }}
-            button {{ background: #007bff; color: white; padding: 12px 24px; border: none; border-radius: 50px; cursor: pointer; width: 100%; font-size: 16px; }}
-            .btn {{ display: inline-block; background: #6c757d; color: white; padding: 10px 20px; text-decoration: none; border-radius: 50px; margin-top: 15px; text-align: center; }}
+            button {{ background: #007bff; color: white; padding: 12px 24px; border: none; border-radius: 50px; cursor: pointer; width: 100%; font-size: 16px; font-weight: bold; }}
+            .btn {{ display: inline-block; background: #6c757d; color: white; padding: 10px 20px; text-decoration: none; border-radius: 50px; margin-top: 15px; text-align: center; width: 100%; }}
         </style>
     </head>
     <body>
