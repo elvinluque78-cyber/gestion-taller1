@@ -102,7 +102,7 @@ FORMULARIO = '''
 </html>
 '''
 
-# HTML para el listado (VERSION CORREGIDA - SIN ERRORES)
+# HTML para el listado
 LISTADO = '''
 <!DOCTYPE html>
 <html>
@@ -454,10 +454,10 @@ def enviar_whatsapp_listo(codigo, cliente_nombre, equipo, marca, telefono_client
         twilio_client = Client(twilio_account_sid, twilio_auth_token)
         tecnico_whatsapp = "whatsapp:+584123697532"
         
-        mensaje = f"""✅ *EQUIPO REPARADO - LISTO PARA RETIRAR*
+        mensaje = f"""✅ *EQUIPO LISTO PARA ENTREGAR*
 
 🔧 *Elvin Technology*
-📌 Código de reparación: *{codigo}*
+📌 Código: *{codigo}*
 👤 Cliente: {cliente_nombre}
 🔧 Equipo: {equipo} {marca}
 
@@ -465,11 +465,11 @@ def enviar_whatsapp_listo(codigo, cliente_nombre, equipo, marca, telefono_client
 📍 Lunes a Sábado
 🕘 9:00 am a 4:00 pm
 
-🏁 Tu equipo ya está listo. Puede pasar a retirarlo en el taller.
+🏁 El equipo ya está listo. Puede pasar a retirarlo.
 
 📞 Contacto: +58 412 3697532
 
-¡Gracias por confiar en nosotros!"""
+✅ REENVÍA ESTE MENSAJE AL CLIENTE"""
         
         message = twilio_client.messages.create(
             body=mensaje,
@@ -480,6 +480,57 @@ def enviar_whatsapp_listo(codigo, cliente_nombre, equipo, marca, telefono_client
         return True
     except Exception as e:
         print(f"⚠️ Error enviando WhatsApp de LISTO: {e}")
+        return False
+
+def enviar_whatsapp_entregado(codigo, cliente_nombre, equipo, marca, telefono_cliente, fecha_entrega):
+    """Envía WhatsApp al técnico cuando un equipo se entrega, con mensaje de garantía para reenviar al cliente"""
+    try:
+        twilio_account_sid = os.environ.get("TWILIO_ACCOUNT_SID")
+        twilio_auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
+        twilio_whatsapp_from = os.environ.get("TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886")
+        
+        print(f"📱 Intentando enviar WhatsApp ENTREGADO con garantía")
+        
+        if not twilio_account_sid or not twilio_auth_token:
+            print("⚠️ Faltan credenciales de Twilio en las variables de entorno")
+            return False
+        
+        twilio_client = Client(twilio_account_sid, twilio_auth_token)
+        tecnico_whatsapp = "whatsapp:+584123697532"
+        
+        # Calcular fecha de fin de garantía (2 meses después de la entrega)
+        fecha_entrega_obj = datetime.datetime.strptime(fecha_entrega[:10], "%Y-%m-%d")
+        fecha_fin = fecha_entrega_obj + datetime.timedelta(days=60)
+        fecha_fin_str = fecha_fin.strftime("%d/%m/%Y")
+        fecha_entrega_str = fecha_entrega_obj.strftime("%d/%m/%Y")
+        
+        mensaje = f"""✅ *EQUIPO ENTREGADO - GARANTÍA ACTIVADA*
+
+🔧 *Elvin Technology*
+📌 Código: *{codigo}*
+👤 Cliente: {cliente_nombre}
+🔧 Equipo: {equipo} {marca}
+
+📅 *Fecha de entrega:* {fecha_entrega_str}
+
+🛡️ *GARANTÍA: 2 MESES*
+Válida hasta: {fecha_fin_str}
+
+Cubre: mano de obra y repuestos (excepto mal uso o daños externos)
+
+📞 Contacto: +58 412 3697532
+
+✅ REENVÍA ESTE MENSAJE AL CLIENTE"""
+        
+        message = twilio_client.messages.create(
+            body=mensaje,
+            from_=twilio_whatsapp_from,
+            to=tecnico_whatsapp
+        )
+        print(f"✅ WhatsApp de ENTREGADO enviado - SID: {message.sid}")
+        return True
+    except Exception as e:
+        print(f"⚠️ Error enviando WhatsApp de ENTREGADO: {e}")
         return False
 
 def generar_codigo():
@@ -563,7 +614,6 @@ def nueva():
             
             if twilio_account_sid and twilio_auth_token:
                 twilio_client = Client(twilio_account_sid, twilio_auth_token)
-                # El mensaje se envía al TÉCNICO (tú), no al cliente
                 tecnico_whatsapp = "whatsapp:+584123697532"
                 
                 mensaje_whatsapp = f"""🧾 *NUEVO TICKET - PARA REENVIAR AL CLIENTE*
@@ -588,9 +638,9 @@ def nueva():
                     from_=twilio_whatsapp_from,
                     to=tecnico_whatsapp
                 )
-                print(f"✅ WhatsApp enviado al técnico para reenviar")
+                print(f"✅ WhatsApp nuevo ticket enviado al técnico")
         except Exception as e:
-            print(f"⚠️ Error en WhatsApp: {e}")
+            print(f"⚠️ Error en WhatsApp nuevo ticket: {e}")
         
         return redirect(url_for('nueva'))
     return render_template_string(FORMULARIO)
@@ -770,11 +820,13 @@ def editar(id):
             enviar_telegram_listo(codigo, cliente_nombre, equipo, marca)
             enviar_whatsapp_listo(codigo, cliente_nombre, equipo, marca, cliente_telefono)
         
-        # Si cambia a "entregado", registrar fecha_salida
+        # Si cambia a "entregado", registrar fecha_salida y enviar garantía
         fecha_salida = None
         if estado_nuevo == 'entregado' and estado_anterior != 'entregado':
             fecha_salida = datetime.datetime.now().isoformat()
             print(f"✅ Ticket {id} marcado como ENTREGADO - Fecha salida: {fecha_salida}")
+            # Enviar WhatsApp con garantía
+            enviar_whatsapp_entregado(codigo, cliente_nombre, equipo, marca, cliente_telefono, fecha_salida)
         
         # Actualizar según corresponda
         if fecha_salida:
