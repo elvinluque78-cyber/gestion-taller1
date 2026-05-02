@@ -222,7 +222,7 @@ LISTADO = '''
 </html>
 '''
 
-# ---------- LISTADO DE GARANTÍAS ----------
+# ---------- LISTADO DE GARANTÍAS (CORREGIDO) ----------
 GARANTIAS_HTML = '''
 <!DOCTYPE html>
 <html>
@@ -233,16 +233,20 @@ GARANTIAS_HTML = '''
     <style>
         * { box-sizing: border-box; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; margin: 0; padding: 20px; }
-        .container { max-width: 1300px; margin: 0 auto; background: white; padding: 25px; border-radius: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); overflow-x: auto; }
+        .container { max-width: 1400px; margin: 0 auto; background: white; padding: 25px; border-radius: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); overflow-x: auto; }
         h1 { color: #9c27b0; margin: 0 0 20px 0; font-size: 32px; }
         .btn-group { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
         .btn { display: inline-block; background: #28a745; color: white; padding: 10px 24px; text-decoration: none; border-radius: 50px; margin: 0; font-size: 14px; font-weight: bold; }
         .btn-small { padding: 8px 16px; font-size: 12px; background: #9c27b0; color: white; text-decoration: none; border-radius: 25px; display: inline-block; }
-        table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 900px; }
-        th, td { border: 1px solid #e0e0e0; padding: 12px 10px; text-align: left; }
-        th { background: linear-gradient(135deg, #9c27b0, #7b1fa2); color: white; }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 1200px; }
+        th, td { border: 1px solid #e0e0e0; padding: 12px 10px; text-align: left; vertical-align: top; }
+        th { background: linear-gradient(135deg, #9c27b0, #7b1fa2); color: white; font-weight: bold; position: sticky; top: 0; }
         tr:nth-child(even) { background: #f8f9fa; }
         tr:hover { background: #f1f1f1; }
+        .estado-en_reparacion { color: #ff9800; font-weight: bold; }
+        .estado-espera_repuesto { color: #f44336; font-weight: bold; }
+        .estado-lista { color: #4caf50; font-weight: bold; }
+        .foto-link { font-size: 11px; }
     </style>
 </head>
 <body>
@@ -253,11 +257,22 @@ GARANTIAS_HTML = '''
             <a href="/listado" class="btn">📋 Listado</a>
             <a href="/consulta" class="btn">🔍 Consultar ticket</a>
         </div>
+        <div style="overflow-x: auto;">
         <table>
             <thead>
                 <tr>
-                    <th>Código</th><th>Cliente</th><th>Equipo</th><th>Estado</th>
-                    <th>Entrada Garantía</th><th>Salida Garantía</th><th>Técnico</th><th>Foto</th><th>Acciones</th>
+                    <th>Código</th>
+                    <th>Cliente</th>
+                    <th>Teléfono</th>
+                    <th>Equipo</th>
+                    <th>Marca</th>
+                    <th>Falla Original</th>
+                    <th>Estado</th>
+                    <th>Entrada Garantía</th>
+                    <th>Salida Garantía</th>
+                    <th>Técnico</th>
+                    <th>Foto</th>
+                    <th>Acciones</th>
                 </tr>
             </thead>
             <tbody>
@@ -265,17 +280,24 @@ GARANTIAS_HTML = '''
                 <tr>
                     <td>{{ g[1] }}</td>
                     <td>{{ g[2] }}</td>
-                    <td>{{ g[4] }} {{ g[5] }}</td>
-                    <td>{{ g[8].replace('_', ' ') }}</td>
-                    <td>{{ g[7][:10] if g[7] else '' }}</td>
-                    <td>{% if g[10] %}{{ g[10][:10] }}{% else %}—{% endif %}</td>
-                    <td>{{ g[6] if g[6] else '—' }}</td>
-                    <td>{% if g[9] %}<a href="/foto_garantia/{{ g[0] }}" target="_blank" class="btn-small">📷 Ver</a>{% else %}—{% endif %}</td>
-                    <tr><a href="/editar_garantia/{{ g[0] }}" class="btn-small">✏️ Editar</a></td>
+                    <td>{{ g[3] if g[3] else '-' }}</td>
+                    <td>{{ g[4] }}</td>
+                    <td>{{ g[5] if g[5] else '-' }}</td>
+                    <td>{{ g[6][:60] if g[6] else '-' }}{% if g[6] and g[6]|length > 60 %}...{% endif %}</td>
+                    <td class="estado-{{ g[8] }}">{{ g[8].replace('_', ' ') if g[8] else '-' }}</td>
+                    <td>{{ g[7][:10] if g[7] else '-' }}</td>
+                    <td>{% if g[10] %}{{ g[10][:10] }}{% else %}-{% endif %}</td>
+                    <td>{{ g[6] if g[6] else '-' }}</td>
+                    <td>{% if g[9] %}<a href="/foto_garantia/{{ g[0] }}" target="_blank" class="foto-link">📷 Ver</a>{% else %}-{% endif %}</td>
+                    <td><a href="/editar_garantia/{{ g[0] }}" class="btn-small">✏️ Editar</a></td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
+        </div>
+        {% if not garantias %}
+        <p style="text-align:center;color:#666;padding:40px;">No hay garantías registradas aún.</p>
+        {% endif %}
     </div>
 </body>
 </html>
@@ -380,7 +402,7 @@ def ver_garantias():
     conn.close()
     return render_template_string(GARANTIAS_HTML, garantias=data)
 
-# ---------- CONSULTA PÚBLICA (CORREGIDA - VENTANAS GRANDES) ----------
+# ---------- CONSULTA PÚBLICA ----------
 @app.route("/consulta", methods=["GET", "POST"])
 def consulta():
     if request.method == "POST":
