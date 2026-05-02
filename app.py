@@ -109,6 +109,7 @@ FORMULARIO = '''
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Nueva Reparación</title>
     <style>
+        * { box-sizing: border-box; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; margin: 0; padding: 20px; min-height: 100vh; display: flex; justify-content: center; align-items: center; }
         .container { max-width: 650px; width: 100%; margin: auto; background: white; padding: 40px; border-radius: 25px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); }
         h1 { text-align: center; color: #1a1a2e; margin-bottom: 30px; font-size: 32px; }
@@ -164,7 +165,7 @@ LISTADO = '''
         .buscar-form { margin: 20px 0; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
         .buscar-form input { padding: 10px 18px; border: 1px solid #ddd; border-radius: 50px; width: 260px; font-size: 14px; }
         table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 1000px; }
-        th, td { border: 1px solid #e0e0e0; padding: 14px 12px; text-align: left; vertical-align: middle; }
+        th, td { border: 1px solid #e0e0e0; padding: 12px 10px; text-align: left; vertical-align: middle; }
         th { background: linear-gradient(135deg, #007bff, #0056b3); color: white; font-weight: bold; position: sticky; top: 0; }
         tr:nth-child(even) { background: #f8f9fa; }
         tr:hover { background: #f1f1f1; }
@@ -238,7 +239,7 @@ GARANTIAS_HTML = '''
         .btn { display: inline-block; background: #28a745; color: white; padding: 10px 24px; text-decoration: none; border-radius: 50px; margin: 0; font-size: 14px; font-weight: bold; }
         .btn-small { padding: 8px 16px; font-size: 12px; background: #9c27b0; color: white; text-decoration: none; border-radius: 25px; display: inline-block; }
         table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 900px; }
-        th, td { border: 1px solid #e0e0e0; padding: 14px 12px; text-align: left; }
+        th, td { border: 1px solid #e0e0e0; padding: 12px 10px; text-align: left; }
         th { background: linear-gradient(135deg, #9c27b0, #7b1fa2); color: white; }
         tr:nth-child(even) { background: #f8f9fa; }
         tr:hover { background: #f1f1f1; }
@@ -270,7 +271,7 @@ GARANTIAS_HTML = '''
                     <td>{% if g[10] %}{{ g[10][:10] }}{% else %}—{% endif %}</td>
                     <td>{{ g[6] if g[6] else '—' }}</td>
                     <td>{% if g[9] %}<a href="/foto_garantia/{{ g[0] }}" target="_blank" class="btn-small">📷 Ver</a>{% else %}—{% endif %}</td>
-                    <td><a href="/editar_garantia/{{ g[0] }}" class="btn-small">✏️ Editar</a></td>
+                    <tr><a href="/editar_garantia/{{ g[0] }}" class="btn-small">✏️ Editar</a></td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -280,7 +281,7 @@ GARANTIAS_HTML = '''
 </html>
 '''
 
-# ---------- RUTA PRINCIPAL (NUEVA REPARACIÓN) ----------
+# ---------- RUTA PRINCIPAL ----------
 @app.route("/", methods=["GET", "POST"])
 def nueva():
     if request.method == "POST":
@@ -379,7 +380,7 @@ def ver_garantias():
     conn.close()
     return render_template_string(GARANTIAS_HTML, garantias=data)
 
-# ---------- CONSULTA PÚBLICA ----------
+# ---------- CONSULTA PÚBLICA (CORREGIDA - VENTANAS GRANDES) ----------
 @app.route("/consulta", methods=["GET", "POST"])
 def consulta():
     if request.method == "POST":
@@ -459,36 +460,56 @@ def consulta():
             return f'''
             <!DOCTYPE html>
             <html>
-            <head><meta charset="UTF-8"><title>Ticket {cod}</title>
-            <style>
-                * {{ box-sizing: border-box; }}
-                body {{ font-family: 'Segoe UI', sans-serif; margin: 0; background: linear-gradient(135deg, #667eea, #764ba2); min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; }}
-                .card {{ max-width: 650px; width: 100%; background: white; border-radius: 35px; padding: 40px; text-align: center; }}
-                .info {{ background: #f8f9fa; padding: 20px; border-radius: 20px; margin: 25px 0; text-align: left; font-size: 18px; }}
-                img {{ max-width: 100%; border-radius: 20px; margin: 20px 0; }}
-                button {{ padding: 14px 32px; margin: 10px; border: none; border-radius: 50px; cursor: pointer; font-size: 18px; font-weight: bold; }}
-                .btn-listo {{ background: #4caf50; color: white; }}
-                .btn-garantia {{ background: #9c27b0; color: white; }}
-                .estado {{ display: inline-block; padding: 10px 30px; border-radius: 50px; margin: 15px 0; font-size: 18px; }}
-                .estado-en_reparacion {{ background: #fff3e0; color: #ff9800; }}
-                .estado-espera_repuesto {{ background: #ffebee; color: #f44336; }}
-                .estado-lista {{ background: #e8f5e9; color: #4caf50; }}
-                .estado-entregado {{ background: #e3f2fd; color: #2196f3; }}
-                .estado-en_garantia {{ background: #f3e5f5; color: #9c27b0; }}
-            </style>
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1">
+                <title>Ticket {cod}</title>
+                <style>
+                    * {{ box-sizing: border-box; }}
+                    body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; }}
+                    .card {{ max-width: 700px; width: 100%; background: white; border-radius: 35px; padding: 45px; box-shadow: 0 25px 50px rgba(0,0,0,0.2); text-align: center; }}
+                    h1 {{ color: #1a1a2e; margin-bottom: 25px; font-size: 36px; }}
+                    .info {{ background: #f8f9fa; padding: 25px; border-radius: 20px; margin: 25px 0; text-align: left; font-size: 18px; }}
+                    .info p {{ margin: 15px 0; }}
+                    .estado {{ display: inline-block; padding: 12px 35px; border-radius: 50px; font-weight: bold; margin: 20px 0; font-size: 20px; }}
+                    .estado-en_reparacion {{ background: #fff3e0; color: #ff9800; }}
+                    .estado-espera_repuesto {{ background: #ffebee; color: #f44336; }}
+                    .estado-lista {{ background: #e8f5e9; color: #4caf50; }}
+                    .estado-entregado {{ background: #e3f2fd; color: #2196f3; }}
+                    .estado-en_garantia {{ background: #f3e5f5; color: #9c27b0; }}
+                    img {{ max-width: 100%; max-height: 350px; object-fit: contain; border-radius: 20px; margin: 20px 0; border: 2px solid #ddd; }}
+                    button {{ padding: 16px 40px; margin: 15px 12px; border: none; border-radius: 50px; cursor: pointer; font-size: 18px; font-weight: bold; transition: 0.3s; }}
+                    button:hover {{ transform: scale(1.05); }}
+                    .btn-listo {{ background: linear-gradient(135deg, #4caf50, #388e3c); color: white; }}
+                    .btn-garantia {{ background: linear-gradient(135deg, #9c27b0, #7b1fa2); color: white; }}
+                    .btn-volver {{ display: inline-block; background: #6c757d; color: white; padding: 12px 30px; text-decoration: none; border-radius: 50px; margin-top: 20px; font-size: 16px; transition: 0.3s; }}
+                    .btn-volver:hover {{ background: #5a6268; }}
+                    @media (max-width: 600px) {{
+                        .card {{ padding: 25px; }}
+                        h1 {{ font-size: 28px; }}
+                        .info {{ font-size: 14px; padding: 15px; }}
+                        button {{ padding: 12px 25px; font-size: 14px; }}
+                    }}
+                </style>
             </head>
             <body>
-            <div class="card">
-                <h2>🔍 Ticket {cod}</h2>
-                <div class="estado estado-{estado}">📌 Estado: {estado.replace('_', ' ').upper()}</div>
-                <div class="info"><strong>👤 Cliente:</strong> {cliente}<br><strong>🔧 Equipo:</strong> {equipo} {marca}</div>
-                <img src="{foto}">
-                <div>
-                    {'<form method="POST"><input name="codigo" value="' + cod + '"><input name="accion" value="cambiar_estado"><button class="btn-listo">✅ LISTO</button></form>' if mostrar_listo else ''}
-                    {'<form method="POST"><input name="codigo" value="' + cod + '"><input name="accion" value="marcar_garantia"><button class="btn-garantia">🛡️ GARANTÍA</button></form>' if mostrar_garantia else ''}
+                <div class="card">
+                    <h1>🔍 Ticket {cod}</h1>
+                    <div class="estado estado-{estado}">
+                        📌 Estado: <strong>{estado.replace('_', ' ').upper()}</strong>
+                    </div>
+                    <div class="info">
+                        <p><strong>👤 Cliente:</strong> {cliente}</p>
+                        <p><strong>🔧 Equipo:</strong> {equipo} {marca}</p>
+                    </div>
+                    <img src="{foto}" alt="Foto del equipo">
+                    <div style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;">
+                        {'<form method="POST" style="display: inline;"><input type="hidden" name="codigo" value="' + cod + '"><input type="hidden" name="accion" value="cambiar_estado"><button class="btn-listo">✅ LISTO</button></form>' if mostrar_listo else ''}
+                        {'<form method="POST" style="display: inline;"><input type="hidden" name="codigo" value="' + cod + '"><input type="hidden" name="accion" value="marcar_garantia"><button class="btn-garantia">🛡️ GARANTÍA</button></form>' if mostrar_garantia else ''}
+                    </div>
+                    <br>
+                    <a href="/consulta" class="btn-volver">← Consultar otro ticket</a>
                 </div>
-                <br><a href="/consulta" style="background:#6c757d; color:white; padding:12px 28px; text-decoration:none; border-radius:50px;">← Volver</a>
-            </div>
             </body>
             </html>
             '''
@@ -497,19 +518,37 @@ def consulta():
     return '''
     <!DOCTYPE html>
     <html>
-    <head><meta charset="UTF-8"><title>Consultar</title>
-    <style>
-        body { font-family: 'Segoe UI', sans-serif; background: linear-gradient(135deg, #667eea, #764ba2); min-height: 100vh; display: flex; justify-content: center; align-items: center; margin: 0; padding: 20px; }
-        .card { background: white; padding: 50px; border-radius: 35px; text-align: center; width: 500px; max-width: 100%; }
-        input { width: 90%; padding: 16px; margin: 20px 0; border-radius: 50px; border: 1px solid #ddd; text-align: center; font-size: 16px; }
-        button { background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 16px; border: none; border-radius: 50px; width: 100%; font-size: 18px; cursor: pointer; }
-        h1 { color: #1a1a2e; font-size: 32px; }
-    </style>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Consultar Ticket</title>
+        <style>
+            * { box-sizing: border-box; }
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; }
+            .container { max-width: 550px; width: 100%; background: white; padding: 50px; border-radius: 35px; box-shadow: 0 25px 50px rgba(0,0,0,0.2); text-align: center; }
+            h1 { color: #1a1a2e; margin-bottom: 35px; font-size: 36px; }
+            input { width: 100%; padding: 18px; margin: 25px 0; border: 2px solid #e0e0e0; border-radius: 60px; font-size: 18px; text-align: center; transition: 0.3s; background: white; }
+            input:focus { outline: none; border-color: #667eea; transform: scale(1.01); }
+            button { width: 100%; padding: 18px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 60px; cursor: pointer; font-size: 20px; font-weight: bold; transition: 0.3s; }
+            button:hover { transform: scale(1.02); }
+            @media (max-width: 600px) {
+                .container { padding: 30px; }
+                h1 { font-size: 28px; }
+                input { padding: 14px; font-size: 16px; }
+                button { padding: 14px; font-size: 18px; }
+            }
+        </style>
     </head>
     <body>
-    <div class="card"><h1>🔍 Consultar Ticket</h1>
-    <form method="POST"><input name="codigo" placeholder="Ej: E-001" required><button type="submit">Ver</button></form>
-    </div></body></html>
+        <div class="container">
+            <h1>🔍 Consultar Ticket</h1>
+            <form method="POST">
+                <input type="text" name="codigo" placeholder="Ej: E-001" required autofocus>
+                <button type="submit">Ver estado y foto</button>
+            </form>
+        </div>
+    </body>
+    </html>
     '''
 
 # ---------- EDICIÓN DE REPARACIONES ----------
@@ -530,7 +569,6 @@ def editar(id):
         tecnico = request.form.get("tecnico")
         actualizado = datetime.datetime.now().isoformat()
         
-        # ENTREGADO (con garantía de 2 meses, sin "REENVÍA")
         if estado_nuevo == 'entregado' and estado_anterior != 'entregado':
             fecha_salida = actualizado
             fecha_entrega_obj = datetime.datetime.strptime(fecha_salida[:10], "%Y-%m-%d")
@@ -553,7 +591,6 @@ def editar(id):
 📞 *Contacto:* +58 412 3697532"""
             enviar_telegram(msg_telegram)
             
-            # WhatsApp: mensaje completo sin "REENVÍA ESTE MENSAJE"
             msg_whatsapp = f"""✅ *EQUIPO ENTREGADO - GARANTÍA 2 MESES*
 
 🔧 *Elvin Technology*
@@ -572,8 +609,6 @@ Cubre: mano de obra y repuestos (excepto mal uso o daños externos)
             
             cur.execute("UPDATE reparaciones SET equipo=%s, marca=%s, falla=%s, presupuesto=%s, tecnico=%s, estado=%s, actualizado_en=%s, fecha_salida=%s WHERE id=%s",
                        (equipo, marca, falla, presupuesto, tecnico, estado_nuevo, actualizado, fecha_salida, id))
-        
-        # LISTO
         elif estado_nuevo == 'lista' and estado_anterior != 'lista':
             msg_telegram = f"""✅ *EQUIPO LISTO - ELVIN TECHNOLOGY*
 
@@ -606,12 +641,9 @@ Cubre: mano de obra y repuestos (excepto mal uso o daños externos)
             
             cur.execute("UPDATE reparaciones SET equipo=%s, marca=%s, falla=%s, presupuesto=%s, tecnico=%s, estado=%s, actualizado_en=%s WHERE id=%s",
                        (equipo, marca, falla, presupuesto, tecnico, estado_nuevo, actualizado, id))
-        
-        # OTROS ESTADOS (sin notificaciones)
         else:
             cur.execute("UPDATE reparaciones SET equipo=%s, marca=%s, falla=%s, presupuesto=%s, tecnico=%s, estado=%s, actualizado_en=%s WHERE id=%s",
                        (equipo, marca, falla, presupuesto, tecnico, estado_nuevo, actualizado, id))
-        
         conn.commit()
         conn.close()
         return redirect(url_for('listado'))
