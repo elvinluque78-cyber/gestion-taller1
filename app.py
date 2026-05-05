@@ -222,7 +222,7 @@ LISTADO = '''
 </html>
 '''
 
-# ---------- LISTADO DE GARANTÍAS (CORREGIDO) ----------
+# ---------- LISTADO DE GARANTÍAS ----------
 GARANTIAS_HTML = '''
 <!DOCTYPE html>
 <html>
@@ -261,35 +261,25 @@ GARANTIAS_HTML = '''
         <table>
             <thead>
                 <tr>
-                    <th>Código</th>
-                    <th>Cliente</th>
-                    <th>Teléfono</th>
-                    <th>Equipo</th>
-                    <th>Marca</th>
-                    <th>Falla Original</th>
-                    <th>Estado</th>
-                    <th>Entrada Garantía</th>
-                    <th>Salida Garantía</th>
-                    <th>Técnico</th>
-                    <th>Foto</th>
-                    <th>Acciones</th>
+                    <th>Código</th><th>Cliente</th><th>Teléfono</th><th>Equipo</th><th>Marca</th><th>Falla Original</th>
+                    <th>Estado</th><th>Entrada Garantía</th><th>Salida Garantía</th><th>Técnico</th><th>Foto</th><th>Acciones</th>
                 </tr>
             </thead>
             <tbody>
                 {% for g in garantias %}
                 <tr>
-                    <td>{{ g[1] }}</td>
-                    <td>{{ g[2] }}</td>
-                    <td>{{ g[3] if g[3] else '-' }}</td>
-                    <td>{{ g[4] }}</td>
-                    <td>{{ g[5] if g[5] else '-' }}</td>
-                    <td>{{ g[6][:60] if g[6] else '-' }}{% if g[6] and g[6]|length > 60 %}...{% endif %}</td>
-                    <td class="estado-{{ g[8] }}">{{ g[8].replace('_', ' ') if g[8] else '-' }}</td>
-                    <td>{{ g[7][:10] if g[7] else '-' }}</td>
-                    <td>{% if g[10] %}{{ g[10][:10] }}{% else %}-{% endif %}</td>
-                    <td>{{ g[6] if g[6] else '-' }}</td>
-                    <td>{% if g[9] %}<a href="/foto_garantia/{{ g[0] }}" target="_blank" class="foto-link">📷 Ver</a>{% else %}-{% endif %}</td>
-                    <td><a href="/editar_garantia/{{ g[0] }}" class="btn-small">✏️ Editar</a></td>
+                    <td>{{ g[1] }}</a></td>
+                    <td>{{ g[2] }}</a></td>
+                    <td>{{ g[3] if g[3] else '-' }}</a></td>
+                    <td>{{ g[4] }}</a></td>
+                    <td>{{ g[5] if g[5] else '-' }}</a></td>
+                    <td>{{ g[6][:60] if g[6] else '-' }}{% if g[6] and g[6]|length > 60 %}...{% endif %}</a></td>
+                    <td class="estado-{{ g[8] }}">{{ g[8].replace('_', ' ') if g[8] else '-' }}</a></td>
+                    <td>{{ g[7][:10] if g[7] else '-' }}</a></td>
+                    <td>{% if g[10] %}{{ g[10][:10] }}{% else %}-{% endif %}</a></td>
+                    <td>{{ g[6] if g[6] else '-' }}</a></td>
+                    <td>{% if g[9] %}<a href="/foto_garantia/{{ g[0] }}" target="_blank" class="foto-link">📷 Ver</a>{% else %}-{% endif %}</a></td>
+                    <td><a href="/editar_garantia/{{ g[0] }}" class="btn-small">✏️ Editar</a></a></td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -573,24 +563,33 @@ def consulta():
     </html>
     '''
 
-# ---------- EDICIÓN DE REPARACIONES ----------
+# ---------- EDICIÓN DE REPARACIONES (CON CLIENTE Y TELÉFONO EDITABLES) ----------
 @app.route("/editar/<int:id>", methods=["GET", "POST"])
 @requiere_auth
 def editar(id):
     conn = get_db()
     cur = conn.cursor()
     if request.method == "POST":
-        cur.execute("SELECT codigo, cliente_nombre, equipo, marca, estado FROM reparaciones WHERE id=%s", (id,))
-        r = cur.fetchone()
-        estado_anterior = r[4]
-        estado_nuevo = request.form.get("estado")
+        # Obtener estado anterior
+        cur.execute("SELECT estado FROM reparaciones WHERE id=%s", (id,))
+        estado_anterior = cur.fetchone()[0]
+        
+        # Datos del formulario (AHORA INCLUYE CLIENTE Y TELÉFONO)
+        cliente_nombre = request.form.get("cliente_nombre")
+        cliente_telefono = request.form.get("cliente_telefono")
         equipo = request.form.get("equipo")
         marca = request.form.get("marca")
         falla = request.form.get("falla")
         presupuesto = request.form.get("presupuesto")
         tecnico = request.form.get("tecnico")
+        estado_nuevo = request.form.get("estado")
         actualizado = datetime.datetime.now().isoformat()
         
+        # Obtener código para notificaciones
+        cur.execute("SELECT codigo FROM reparaciones WHERE id=%s", (id,))
+        codigo = cur.fetchone()[0]
+        
+        # ENTREGADO (con garantía)
         if estado_nuevo == 'entregado' and estado_anterior != 'entregado':
             fecha_salida = actualizado
             fecha_entrega_obj = datetime.datetime.strptime(fecha_salida[:10], "%Y-%m-%d")
@@ -601,9 +600,9 @@ def editar(id):
             msg_telegram = f"""✅ *EQUIPO ENTREGADO - GARANTÍA 2 MESES*
 
 🔧 *Elvin Technology*
-📌 *Código:* {r[0]}
-👤 *Cliente:* {r[1]}
-🔧 *Equipo:* {r[2]} {r[3]}
+📌 *Código:* {codigo}
+👤 *Cliente:* {cliente_nombre}
+🔧 *Equipo:* {equipo} {marca}
 
 📅 *Fecha de entrega:* {fecha_entrega_str}
 
@@ -616,9 +615,9 @@ def editar(id):
             msg_whatsapp = f"""✅ *EQUIPO ENTREGADO - GARANTÍA 2 MESES*
 
 🔧 *Elvin Technology*
-📌 *Código:* {r[0]}
-👤 *Cliente:* {r[1]}
-🔧 *Equipo:* {r[2]} {r[3]}
+📌 *Código:* {codigo}
+👤 *Cliente:* {cliente_nombre}
+🔧 *Equipo:* {equipo} {marca}
 
 📅 *Fecha de entrega:* {fecha_entrega_str}
 
@@ -629,14 +628,20 @@ Cubre: mano de obra y repuestos (excepto mal uso o daños externos)
 📞 *Contacto:* +58 412 3697532"""
             enviar_whatsapp(msg_whatsapp)
             
-            cur.execute("UPDATE reparaciones SET equipo=%s, marca=%s, falla=%s, presupuesto=%s, tecnico=%s, estado=%s, actualizado_en=%s, fecha_salida=%s WHERE id=%s",
-                       (equipo, marca, falla, presupuesto, tecnico, estado_nuevo, actualizado, fecha_salida, id))
+            cur.execute("""UPDATE reparaciones 
+                SET cliente_nombre=%s, cliente_telefono=%s, equipo=%s, marca=%s, falla=%s, 
+                    presupuesto=%s, tecnico=%s, estado=%s, actualizado_en=%s, fecha_salida=%s
+                WHERE id=%s""",
+                (cliente_nombre, cliente_telefono, equipo, marca, falla,
+                 presupuesto, tecnico, estado_nuevo, actualizado, fecha_salida, id))
+        
+        # LISTO
         elif estado_nuevo == 'lista' and estado_anterior != 'lista':
             msg_telegram = f"""✅ *EQUIPO LISTO - ELVIN TECHNOLOGY*
 
-📌 *Código:* {r[0]}
-👤 *Cliente:* {r[1]}
-🔧 *Equipo:* {r[2]} {r[3]}
+📌 *Código:* {codigo}
+👤 *Cliente:* {cliente_nombre}
+🔧 *Equipo:* {equipo} {marca}
 🏁 *Estado:* LISTO PARA RETIRAR
 
 ⏰ *Horario de retiro:* Lunes a Sábado 9am-4pm
@@ -646,9 +651,9 @@ Cubre: mano de obra y repuestos (excepto mal uso o daños externos)
             msg_whatsapp = f"""✅ *EQUIPO LISTO - PARA REENVIAR AL CLIENTE*
 
 🔧 *Elvin Technology*
-📌 *Código:* {r[0]}
-👤 *Cliente:* {r[1]}
-🔧 *Equipo:* {r[2]} {r[3]}
+📌 *Código:* {codigo}
+👤 *Cliente:* {cliente_nombre}
+🔧 *Equipo:* {equipo} {marca}
 
 🏁 *El equipo ya está listo para retirar.*
 
@@ -661,18 +666,31 @@ Cubre: mano de obra y repuestos (excepto mal uso o daños externos)
 ✅ *REENVÍA ESTE MENSAJE AL CLIENTE*"""
             enviar_whatsapp(msg_whatsapp)
             
-            cur.execute("UPDATE reparaciones SET equipo=%s, marca=%s, falla=%s, presupuesto=%s, tecnico=%s, estado=%s, actualizado_en=%s WHERE id=%s",
-                       (equipo, marca, falla, presupuesto, tecnico, estado_nuevo, actualizado, id))
+            cur.execute("""UPDATE reparaciones 
+                SET cliente_nombre=%s, cliente_telefono=%s, equipo=%s, marca=%s, falla=%s, 
+                    presupuesto=%s, tecnico=%s, estado=%s, actualizado_en=%s
+                WHERE id=%s""",
+                (cliente_nombre, cliente_telefono, equipo, marca, falla,
+                 presupuesto, tecnico, estado_nuevo, actualizado, id))
+        
+        # OTROS ESTADOS (sin notificaciones)
         else:
-            cur.execute("UPDATE reparaciones SET equipo=%s, marca=%s, falla=%s, presupuesto=%s, tecnico=%s, estado=%s, actualizado_en=%s WHERE id=%s",
-                       (equipo, marca, falla, presupuesto, tecnico, estado_nuevo, actualizado, id))
+            cur.execute("""UPDATE reparaciones 
+                SET cliente_nombre=%s, cliente_telefono=%s, equipo=%s, marca=%s, falla=%s, 
+                    presupuesto=%s, tecnico=%s, estado=%s, actualizado_en=%s
+                WHERE id=%s""",
+                (cliente_nombre, cliente_telefono, equipo, marca, falla,
+                 presupuesto, tecnico, estado_nuevo, actualizado, id))
+        
         conn.commit()
         conn.close()
         return redirect(url_for('listado'))
     
+    # GET: mostrar formulario de edición (con campos habilitados)
     cur.execute("SELECT * FROM reparaciones WHERE id=%s", (id,))
     r = cur.fetchone()
     conn.close()
+    
     return f'''
     <!DOCTYPE html>
     <html>
@@ -695,8 +713,14 @@ Cubre: mano de obra y repuestos (excepto mal uso o daños externos)
         <div class="container">
             <h2>✏️ Editar {r[1]}</h2>
             <form method="POST">
+                <label>Código:</label>
+                <input type="text" value="{r[1]}" disabled style="background:#e9ecef">
+                <label>Cliente:</label>
+                <input type="text" name="cliente_nombre" value="{r[2]}" required>
+                <label>Teléfono:</label>
+                <input type="text" name="cliente_telefono" value="{r[3]}" required>
                 <label>Equipo:</label>
-                <input name="equipo" value="{r[4]}">
+                <input name="equipo" value="{r[4]}" required>
                 <label>Marca:</label>
                 <input name="marca" value="{r[5] or ''}">
                 <label>Falla:</label>
