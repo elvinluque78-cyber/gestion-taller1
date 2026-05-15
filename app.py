@@ -205,7 +205,7 @@ LISTADO = '''
             <a href="/listado" class="btn-small" style="background: #dc3545;">Ver todos</a>
         </form>
         <div style="overflow-x: auto;">
-        <table>
+        <tr>
             <thead>
                 <tr>
                     <th>Código</th><th>Cliente</th><th>Teléfono</th><th>Equipo</th><th>Marca</th><th>Falla</th>
@@ -325,13 +325,11 @@ def nueva():
         conn.commit()
         conn.close()
         
-        # Telegram
         mensaje_telegram = f"🆕 *Nueva reparación*\n📌 Código: {codigo}\n👤 Cliente: {request.form.get('cliente_nombre')}\n📞 Tel: {request.form.get('cliente_telefono')}\n🔧 Equipo: {request.form.get('equipo')} {request.form.get('marca')}\n⚠️ Falla: {request.form.get('falla')}\n💰 Presupuesto: {request.form.get('presupuesto')}\n👨‍🔧 Técnico: {request.form.get('tecnico')}"
         if foto_url:
             mensaje_telegram += f"\n📸 Foto: {foto_url}"
         enviar_telegram(mensaje_telegram)
         
-        # WhatsApp - enviar al TÉCNICO
         try:
             sid = os.environ.get("TWILIO_ACCOUNT_SID")
             auth = os.environ.get("TWILIO_AUTH_TOKEN")
@@ -404,7 +402,6 @@ def consulta():
         cursor = conn.cursor()
         
         if accion == "cambiar_estado":
-            # Subir video si existe
             video_url = None
             if 'video' in request.files:
                 video = request.files['video']
@@ -580,15 +577,17 @@ def editar(id):
     cursor = conn.cursor()
     
     if request.method == "POST":
+        # Obtener datos actuales para notificaciones
         cursor.execute("SELECT codigo, cliente_nombre, equipo, marca FROM reparaciones WHERE id = %s", (id,))
         r = cursor.fetchone()
         codigo = r[0]
         cliente_nombre = r[1]
-        equipo = r[2]
-        marca = r[3]
+        equipo_old = r[2]
+        marca_old = r[3]
         
-        equipo_nuevo = request.form.get("equipo")
-        marca_nueva = request.form.get("marca")
+        # Datos del formulario
+        equipo = request.form.get("equipo")
+        marca = request.form.get("marca")
         falla = request.form.get("falla")
         presupuesto = request.form.get("presupuesto")
         tecnico = request.form.get("tecnico")
@@ -596,6 +595,7 @@ def editar(id):
         testigo_tecnico = request.form.get("testigo_tecnico") == 'on'
         actualizado = datetime.datetime.now().isoformat()
         
+        # Subir video si existe
         video_url = None
         if 'video' in request.files:
             video = request.files['video']
@@ -604,19 +604,23 @@ def editar(id):
                     cloudinary.config(cloud_name=CLOUD_NAME, api_key=API_KEY, api_secret=API_SECRET)
                     upload_result = cloudinary.uploader.upload(video, resource_type="video")
                     video_url = upload_result.get('secure_url')
+                    print(f"✅ Video subido: {video_url}")
                 except Exception as e:
                     print(f"⚠️ Error al subir video: {e}")
         else:
             cursor.execute("SELECT video_url FROM reparaciones WHERE id = %s", (id,))
             video_url = cursor.fetchone()[0]
         
+        # Fecha de prueba si se marca testigo
         fecha_prueba = None
         if testigo_tecnico:
             fecha_prueba = actualizado
         
+        # Obtener estado anterior
         cursor.execute("SELECT estado FROM reparaciones WHERE id = %s", (id,))
         estado_anterior = cursor.fetchone()[0]
         
+        # Si cambia a ENTREGADO
         fecha_salida = None
         if estado_nuevo == 'entregado' and estado_anterior != 'entregado':
             fecha_salida = actualizado
@@ -629,18 +633,20 @@ def editar(id):
             enviar_telegram(msg)
             enviar_whatsapp(msg)
         
+        # Si cambia a LISTO
         if estado_nuevo == 'lista' and estado_anterior != 'lista':
             msg = f"✅ *EQUIPO LISTO*\n📌 Código: {codigo}\n👤 Cliente: {cliente_nombre}\n🔧 Equipo: {equipo} {marca}"
             enviar_telegram(msg)
             enviar_whatsapp(msg)
         
+        # Actualizar en la base de datos
         if video_url:
             cursor.execute('''
                 UPDATE reparaciones 
                 SET equipo=%s, marca=%s, falla=%s, presupuesto=%s, tecnico=%s, estado=%s, 
                     actualizado_en=%s, video_url=%s, testigo_tecnico=%s, fecha_prueba=%s
                 WHERE id=%s
-            ''', (equipo_nuevo, marca_nueva, falla, presupuesto, tecnico, estado_nuevo, 
+            ''', (equipo, marca, falla, presupuesto, tecnico, estado_nuevo, 
                   actualizado, video_url, testigo_tecnico, fecha_prueba, id))
         else:
             cursor.execute('''
@@ -648,13 +654,18 @@ def editar(id):
                 SET equipo=%s, marca=%s, falla=%s, presupuesto=%s, tecnico=%s, estado=%s, 
                     actualizado_en=%s, testigo_tecnico=%s, fecha_prueba=%s
                 WHERE id=%s
-            ''', (equipo_nuevo, marca_nueva, falla, presupuesto, tecnico, estado_nuevo, 
+            ''', (equipo, marca, falla, presupuesto, tecnico, estado_nuevo, 
                   actualizado, testigo_tecnico, fecha_prueba, id))
+        
+        # Si cambia a ENTREGADO, guardar fecha_salida
+        if fecha_salida:
+            cursor.execute("UPDATE reparaciones SET fecha_salida = %s WHERE id = %s", (fecha_salida, id))
         
         conn.commit()
         conn.close()
         return redirect(url_for('listado'))
     
+    # GET: mostrar formulario de edición
     cursor.execute("SELECT * FROM reparaciones WHERE id = %s", (id,))
     r = cursor.fetchone()
     conn.close()
@@ -717,7 +728,7 @@ def editar(id):
                 </select>
                 
                 <div class="checkbox">
-                    <input type="checkbox" name="testigo_tecnico" id="testigo" {'checked' if r[15] else ''}>
+                    <input type="checkbox" name="testigo_tecnico" id="testigo" {testigo_checked}>
                     <label for="testigo" style="margin: 0;">✅ Equipo probado en taller</label>
                 </div>
                 <label>Video de prueba (opcional):</label>
