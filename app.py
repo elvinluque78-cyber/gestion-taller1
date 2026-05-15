@@ -168,88 +168,18 @@ LISTADO = '''
     <title>Listado de Reparaciones</title>
     <style>
         * { box-sizing: border-box; }
-        body { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            background: #f0f2f5; 
-            margin: 0; 
-            padding: 15px; 
-        }
-        .container { 
-            max-width: 100%; 
-            margin: 0 auto; 
-            background: white; 
-            padding: 15px; 
-            border-radius: 20px; 
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1); 
-            overflow-x: auto; 
-        }
-        h1 { 
-            color: #1a1a2e; 
-            margin: 0 0 15px 0; 
-            font-size: 24px; 
-        }
-        .btn-group { 
-            display: flex; 
-            gap: 10px; 
-            flex-wrap: wrap; 
-            margin-bottom: 15px; 
-        }
-        .btn { 
-            display: inline-block; 
-            background: #28a745; 
-            color: white; 
-            padding: 8px 16px; 
-            text-decoration: none; 
-            border-radius: 50px; 
-            font-size: 13px; 
-            font-weight: bold; 
-        }
-        .btn-small { 
-            padding: 6px 12px; 
-            font-size: 11px; 
-            background: #007bff; 
-            color: white; 
-            text-decoration: none; 
-            border-radius: 25px; 
-            display: inline-block; 
-        }
-        .buscar-form { 
-            margin: 15px 0; 
-            display: flex; 
-            gap: 8px; 
-            flex-wrap: wrap; 
-            align-items: center; 
-        }
-        .buscar-form input { 
-            padding: 8px 12px; 
-            border: 1px solid #ddd; 
-            border-radius: 50px; 
-            flex: 1; 
-            min-width: 180px; 
-            font-size: 13px; 
-        }
-        table { 
-            width: 100%; 
-            border-collapse: collapse; 
-            font-size: 12px; 
-            min-width: 800px; 
-        }
-        th, td { 
-            border: 1px solid #ddd; 
-            padding: 8px 6px; 
-            text-align: left; 
-            vertical-align: middle; 
-        }
-        th { 
-            background: #007bff; 
-            color: white; 
-            font-weight: bold; 
-            font-size: 12px; 
-            white-space: nowrap;
-        }
-        tr:nth-child(even) { 
-            background: #f8f9fa; 
-        }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; margin: 0; padding: 15px; }
+        .container { max-width: 100%; margin: 0 auto; background: white; padding: 15px; border-radius: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); overflow-x: auto; }
+        h1 { color: #1a1a2e; margin: 0 0 15px 0; font-size: 22px; }
+        .btn-group { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; }
+        .btn { display: inline-block; background: #28a745; color: white; padding: 8px 16px; text-decoration: none; border-radius: 50px; font-size: 13px; font-weight: bold; }
+        .btn-small { padding: 6px 12px; font-size: 11px; background: #007bff; color: white; text-decoration: none; border-radius: 25px; display: inline-block; }
+        .buscar-form { margin: 15px 0; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+        .buscar-form input { padding: 8px 12px; border: 1px solid #ddd; border-radius: 50px; flex: 1; min-width: 180px; font-size: 13px; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 800px; }
+        th, td { border: 1px solid #ddd; padding: 8px 6px; text-align: left; vertical-align: middle; }
+        th { background: #007bff; color: white; font-weight: bold; font-size: 12px; white-space: nowrap; }
+        tr:nth-child(even) { background: #f8f9fa; }
         .estado-en_reparacion { color: #ff9800; font-weight: bold; }
         .estado-espera_repuesto { color: #f44336; font-weight: bold; }
         .estado-lista { color: #4caf50; font-weight: bold; }
@@ -346,7 +276,7 @@ GARANTIAS_HTML = '''
             <a href="/listado" class="btn">📋 Listado</a>
             <a href="/consulta" class="btn">🔍 Consultar ticket</a>
         </div>
-        <tr>
+        <table>
             <thead>
                 <tr>
                     <th>Código</th><th>Cliente</th><th>Equipo</th><th>Estado</th>
@@ -480,6 +410,7 @@ def consulta():
         cursor = conn.cursor()
         
         if accion == "cambiar_estado":
+            # Subir video si existe
             video_url = None
             if 'video' in request.files:
                 video = request.files['video']
@@ -492,10 +423,12 @@ def consulta():
                     except Exception as e:
                         print(f"⚠️ Error al subir video: {e}")
             
+            # Obtener datos del ticket
             cursor.execute("SELECT codigo, cliente_nombre, cliente_telefono, equipo, marca FROM reparaciones WHERE codigo = %s", (codigo,))
             ticket = cursor.fetchone()
             
             if ticket:
+                # Actualizar estado y guardar video
                 if video_url:
                     cursor.execute("UPDATE reparaciones SET estado = 'lista', actualizado_en = %s, video_url = %s WHERE codigo = %s", 
                                   (datetime.datetime.now().isoformat(), video_url, codigo))
@@ -504,11 +437,13 @@ def consulta():
                                   (datetime.datetime.now().isoformat(), codigo))
                 conn.commit()
                 
+                # Mensaje de Telegram
                 msg_telegram = f"✅ *EQUIPO LISTO*\n📌 Código: {ticket[0]}\n👤 Cliente: {ticket[1]}\n🔧 Equipo: {ticket[3]} {ticket[4]}"
                 if video_url:
-                    msg_telegram += f"\n🎥 Video: {video_url}"
+                    msg_telegram += f"\n🎥 Video de prueba: {video_url}"
                 enviar_telegram(msg_telegram)
                 
+                # Mensaje de WhatsApp (con video si existe)
                 msg_whatsapp = f"""✅ *EQUIPO LISTO*
 
 🔧 *Elvin Technology*
@@ -615,7 +550,7 @@ def consulta():
     return '''
     <!DOCTYPE html>
     <html>
-   <head>
+    <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>Consultar Ticket</title>
