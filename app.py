@@ -91,8 +91,9 @@ def enviar_whatsapp(mensaje):
                 from_=os.environ.get("TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886"),
                 to="whatsapp:+584123697532"
             )
-    except:
-        pass
+            print("✅ WhatsApp enviado")
+    except Exception as e:
+        print(f"⚠️ Error en WhatsApp: {e}")
 
 def generar_codigo():
     conn = get_db()
@@ -295,16 +296,6 @@ GARANTIAS_HTML = '''
 </html>
 '''
 
-def enviar_telegram_listo(codigo, cliente_nombre, equipo, marca):
-    token = "8742564082:AAGpNhCm06UoVks-5Jk7_jattokUSAkKXKI"
-    chat_id = "7150902056"
-    mensaje = f"✅ *EQUIPO LISTO*\n📌 Código: {codigo}\n👤 Cliente: {cliente_nombre}\n🔧 Equipo: {equipo} {marca}\n\n🏁 El equipo está listo para ser entregado al cliente."
-    try:
-        requests.post(f"https://api.telegram.org/bot{token}/sendMessage", 
-                      json={"chat_id": chat_id, "text": mensaje, "parse_mode": "Markdown"})
-    except:
-        pass
-
 @app.route("/", methods=["GET", "POST"])
 def nueva():
     if request.method == "POST":
@@ -334,38 +325,41 @@ def nueva():
         conn.commit()
         conn.close()
         
+        # Telegram
         mensaje_telegram = f"🆕 *Nueva reparación*\n📌 Código: {codigo}\n👤 Cliente: {request.form.get('cliente_nombre')}\n📞 Tel: {request.form.get('cliente_telefono')}\n🔧 Equipo: {request.form.get('equipo')} {request.form.get('marca')}\n⚠️ Falla: {request.form.get('falla')}\n💰 Presupuesto: {request.form.get('presupuesto')}\n👨‍🔧 Técnico: {request.form.get('tecnico')}"
         if foto_url:
             mensaje_telegram += f"\n📸 Foto: {foto_url}"
         enviar_telegram(mensaje_telegram)
         
+        # WhatsApp - enviar al TÉCNICO
         try:
-            twilio_account_sid = os.environ.get("TWILIO_ACCOUNT_SID")
-            twilio_auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
-            twilio_whatsapp_from = os.environ.get("TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886")
-            if twilio_account_sid and twilio_auth_token:
-                twilio_client = Client(twilio_account_sid, twilio_auth_token)
-                numero_cliente = limpiar_numero_telefono(request.form.get('cliente_telefono'))
-                if numero_cliente:
-                    cliente_whatsapp = f"whatsapp:+{numero_cliente}"
-                    mensaje_whatsapp = f"""🧾 *Ticket de ingreso – Elvin Technology*
-📌 N° de ticket: *{codigo}*
+            sid = os.environ.get("TWILIO_ACCOUNT_SID")
+            auth = os.environ.get("TWILIO_AUTH_TOKEN")
+            from_whatsapp = os.environ.get("TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886")
+            if sid and auth:
+                twilio_client = Client(sid, auth)
+                tecnico_whatsapp = "whatsapp:+584123697532"
+                mensaje_whatsapp = f"""🧾 *NUEVO TICKET - ELVIN TECHNOLOGY*
+
+📌 Código: *{codigo}*
 👤 Cliente: {request.form.get('cliente_nombre')}
+📞 Teléfono: {request.form.get('cliente_telefono')}
 🔧 Equipo: {request.form.get('equipo')} {request.form.get('marca')}
 ⚠️ Falla: {request.form.get('falla')}
 💰 Presupuesto: {request.form.get('presupuesto')}
 📅 Fecha ingreso: {ahora[:10]}
 
-📞 Contacto taller: +58 412 3697532
+📸 Foto: {foto_url if foto_url else 'Sin foto'}
 
-Gracias por confiar en nosotros."""
-                    twilio_client.messages.create(
-                        body=mensaje_whatsapp,
-                        from_=twilio_whatsapp_from,
-                        to=cliente_whatsapp
-                    )
+✅ REENVÍA ESTE MENSAJE AL CLIENTE"""
+                twilio_client.messages.create(
+                    body=mensaje_whatsapp,
+                    from_=from_whatsapp,
+                    to=tecnico_whatsapp
+                )
+                print("✅ WhatsApp nuevo ticket enviado al técnico")
         except Exception as e:
-            print(f"⚠️ Error en WhatsApp: {e}")
+            print(f"⚠️ Error en WhatsApp nuevo ticket: {e}")
         
         return redirect(url_for('nueva'))
     return render_template_string(FORMULARIO)
@@ -410,38 +404,51 @@ def consulta():
         cursor = conn.cursor()
         
         if accion == "cambiar_estado":
+            # Subir video si existe
+            video_url = None
+            if 'video' in request.files:
+                video = request.files['video']
+                if video and video.filename != '':
+                    try:
+                        cloudinary.config(cloud_name=CLOUD_NAME, api_key=API_KEY, api_secret=API_SECRET)
+                        upload_result = cloudinary.uploader.upload(video, resource_type="video")
+                        video_url = upload_result.get('secure_url')
+                        print(f"✅ Video subido: {video_url}")
+                    except Exception as e:
+                        print(f"⚠️ Error al subir video: {e}")
+            
             cursor.execute("SELECT codigo, cliente_nombre, cliente_telefono, equipo, marca FROM reparaciones WHERE codigo = %s", (codigo,))
             ticket = cursor.fetchone()
+            
             if ticket:
-                cursor.execute("UPDATE reparaciones SET estado = 'lista', actualizado_en = %s WHERE codigo = %s", 
-                              (datetime.datetime.now().isoformat(), codigo))
+                if video_url:
+                    cursor.execute("UPDATE reparaciones SET estado = 'lista', actualizado_en = %s, video_url = %s WHERE codigo = %s", 
+                                  (datetime.datetime.now().isoformat(), video_url, codigo))
+                else:
+                    cursor.execute("UPDATE reparaciones SET estado = 'lista', actualizado_en = %s WHERE codigo = %s", 
+                                  (datetime.datetime.now().isoformat(), codigo))
                 conn.commit()
-                enviar_telegram_listo(ticket[0], ticket[1], ticket[2], ticket[3])
-                try:
-                    sid = os.environ.get("TWILIO_ACCOUNT_SID")
-                    auth = os.environ.get("TWILIO_AUTH_TOKEN")
-                    from_whatsapp = os.environ.get("TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886")
-                    if sid and auth:
-                        twilio_client = Client(sid, auth)
-                        tecnico_whatsapp = "whatsapp:+584123697532"
-                        mensaje_whatsapp = f"""✅ *EQUIPO LISTO*
+                
+                msg_telegram = f"✅ *EQUIPO LISTO*\n📌 Código: {ticket[0]}\n👤 Cliente: {ticket[1]}\n🔧 Equipo: {ticket[3]} {ticket[4]}"
+                if video_url:
+                    msg_telegram += f"\n🎥 Video: {video_url}"
+                enviar_telegram(msg_telegram)
+                
+                msg_whatsapp = f"""✅ *EQUIPO LISTO*
 
 🔧 *Elvin Technology*
 📌 Código: {ticket[0]}
 👤 Cliente: {ticket[1]}
-🔧 Equipo: {ticket[2]} {ticket[3]}
+🔧 Equipo: {ticket[3]} {ticket[4]}
 
 🏁 El equipo ya está listo para retirar.
 
 ⏰ Horario de retiro: Lunes a Sábado 9am-4pm
 📞 Contacto: +58 412 3697532"""
-                        twilio_client.messages.create(
-                            body=mensaje_whatsapp,
-                            from_=from_whatsapp,
-                            to=tecnico_whatsapp
-                        )
-                except Exception as e:
-                    print(f"⚠️ Error enviando WhatsApp: {e}")
+                if video_url:
+                    msg_whatsapp += f"\n\n🎥 *Video de prueba:* {video_url}"
+                enviar_whatsapp(msg_whatsapp)
+            
             conn.close()
             return '<div style="text-align:center;margin-top:50px;"><h3>✅ Ticket marcado como LISTO</h3><a href="/consulta">Volver</a></div>'
         
@@ -471,6 +478,7 @@ def consulta():
             _, cod, estado, foto, video, cliente, equipo, marca = resultado
             mostrar_listo = (estado == 'en_reparacion')
             mostrar_garantia = estado != 'en_garantia'
+            
             return f'''
             <!DOCTYPE html>
             <html>
@@ -480,28 +488,27 @@ def consulta():
                 <title>Ticket {cod}</title>
                 <style>
                     body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; }}
-                    .card {{ max-width: 700px; width: 100%; background: white; border-radius: 35px; padding: 45px; box-shadow: 0 25px 50px rgba(0,0,0,0.2); text-align: center; }}
-                    h1 {{ color: #1a1a2e; margin-bottom: 25px; font-size: 36px; }}
-                    .info {{ background: #f8f9fa; padding: 25px; border-radius: 20px; margin: 25px 0; text-align: left; font-size: 18px; }}
-                    .info p {{ margin: 15px 0; }}
-                    .estado {{ display: inline-block; padding: 12px 35px; border-radius: 50px; font-weight: bold; margin: 20px 0; font-size: 20px; }}
+                    .card {{ max-width: 700px; width: 100%; background: white; border-radius: 35px; padding: 35px; box-shadow: 0 25px 50px rgba(0,0,0,0.2); text-align: center; }}
+                    h1 {{ color: #1a1a2e; margin-bottom: 20px; font-size: 32px; }}
+                    .info {{ background: #f8f9fa; padding: 20px; border-radius: 20px; margin: 20px 0; text-align: left; font-size: 16px; }}
+                    .info p {{ margin: 12px 0; }}
+                    .estado {{ display: inline-block; padding: 10px 30px; border-radius: 50px; font-weight: bold; margin: 15px 0; font-size: 18px; }}
                     .estado-en_reparacion {{ background: #fff3e0; color: #ff9800; }}
                     .estado-espera_repuesto {{ background: #ffebee; color: #f44336; }}
                     .estado-lista {{ background: #e8f5e9; color: #4caf50; }}
                     .estado-entregado {{ background: #e3f2fd; color: #2196f3; }}
                     .estado-en_garantia {{ background: #f3e5f5; color: #9c27b0; }}
-                    img, video {{ max-width: 100%; max-height: 350px; object-fit: contain; border-radius: 20px; margin: 20px 0; border: 2px solid #ddd; }}
-                    button {{ padding: 16px 40px; margin: 15px 12px; border: none; border-radius: 50px; cursor: pointer; font-size: 18px; font-weight: bold; transition: 0.3s; }}
-                    button:hover {{ transform: scale(1.05); }}
+                    img, video {{ max-width: 100%; max-height: 300px; object-fit: contain; border-radius: 20px; margin: 15px 0; border: 2px solid #ddd; }}
+                    button {{ padding: 14px 35px; margin: 10px; border: none; border-radius: 50px; cursor: pointer; font-size: 16px; font-weight: bold; transition: 0.3s; }}
+                    button:hover {{ transform: scale(1.03); }}
                     .btn-listo {{ background: linear-gradient(135deg, #4caf50, #388e3c); color: white; }}
                     .btn-garantia {{ background: linear-gradient(135deg, #9c27b0, #7b1fa2); color: white; }}
-                    .btn-volver {{ display: inline-block; background: #6c757d; color: white; padding: 12px 30px; text-decoration: none; border-radius: 50px; margin-top: 20px; font-size: 16px; transition: 0.3s; }}
-                    .btn-volver:hover {{ background: #5a6268; }}
+                    .btn-volver {{ display: inline-block; background: #6c757d; color: white; padding: 10px 25px; text-decoration: none; border-radius: 50px; margin-top: 15px; font-size: 14px; }}
                     @media (max-width: 600px) {{
-                        .card {{ padding: 25px; }}
-                        h1 {{ font-size: 28px; }}
-                        .info {{ font-size: 14px; padding: 15px; }}
-                        button {{ padding: 12px 25px; font-size: 14px; }}
+                        .card {{ padding: 20px; }}
+                        h1 {{ font-size: 24px; }}
+                        .info {{ font-size: 13px; padding: 12px; }}
+                        button {{ padding: 10px 20px; font-size: 14px; }}
                     }}
                 </style>
             </head>
@@ -517,8 +524,8 @@ def consulta():
                     </div>
                     <img src="{foto}" alt="Foto del equipo">
                     {'<video controls><source src="' + video + '" type="video/mp4">Tu navegador no soporta video</video>' if video else ''}
-                    <div style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;">
-                        {'<form method="POST" style="display: inline;"><input type="hidden" name="codigo" value="' + cod + '"><input type="hidden" name="accion" value="cambiar_estado"><button class="btn-listo">✅ LISTO</button></form>' if mostrar_listo else ''}
+                    <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; margin-top: 10px;">
+                        {'<form method="POST" enctype="multipart/form-data" style="display: inline-block;"><input type="hidden" name="codigo" value="' + cod + '"><input type="hidden" name="accion" value="cambiar_estado"><input type="file" name="video" accept="video/*" style="margin: 10px 0; display: block;"><button class="btn-listo">✅ MARCAR LISTO CON VIDEO</button></form>' if mostrar_listo else ''}
                         {'<form method="POST" style="display: inline;"><input type="hidden" name="codigo" value="' + cod + '"><input type="hidden" name="accion" value="marcar_garantia"><button class="btn-garantia">🛡️ GARANTÍA</button></form>' if mostrar_garantia else ''}
                     </div>
                     <br>
@@ -540,17 +547,17 @@ def consulta():
         <style>
             * { box-sizing: border-box; }
             body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; }
-            .container { max-width: 550px; width: 100%; background: white; padding: 50px; border-radius: 35px; box-shadow: 0 25px 50px rgba(0,0,0,0.2); text-align: center; }
-            h1 { color: #1a1a2e; margin-bottom: 35px; font-size: 36px; }
-            input { width: 100%; padding: 18px; margin: 25px 0; border: 2px solid #e0e0e0; border-radius: 60px; font-size: 18px; text-align: center; transition: 0.3s; background: white; }
-            input:focus { outline: none; border-color: #667eea; transform: scale(1.01); }
-            button { width: 100%; padding: 18px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 60px; cursor: pointer; font-size: 20px; font-weight: bold; transition: 0.3s; }
+            .container { max-width: 550px; width: 100%; background: white; padding: 45px; border-radius: 35px; box-shadow: 0 25px 50px rgba(0,0,0,0.2); text-align: center; }
+            h1 { color: #1a1a2e; margin-bottom: 30px; font-size: 32px; }
+            input { width: 100%; padding: 16px; margin: 20px 0; border: 2px solid #e0e0e0; border-radius: 60px; font-size: 16px; text-align: center; }
+            input:focus { outline: none; border-color: #667eea; }
+            button { width: 100%; padding: 16px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 60px; cursor: pointer; font-size: 18px; font-weight: bold; transition: 0.3s; }
             button:hover { transform: scale(1.02); }
             @media (max-width: 600px) {
                 .container { padding: 30px; }
-                h1 { font-size: 28px; }
-                input { padding: 14px; font-size: 16px; }
-                button { padding: 14px; font-size: 18px; }
+                h1 { font-size: 26px; }
+                input { padding: 12px; font-size: 14px; }
+                button { padding: 12px; font-size: 16px; }
             }
         </style>
     </head>
@@ -589,7 +596,6 @@ def editar(id):
         testigo_tecnico = request.form.get("testigo_tecnico") == 'on'
         actualizado = datetime.datetime.now().isoformat()
         
-        # Subir video si existe
         video_url = None
         if 'video' in request.files:
             video = request.files['video']
@@ -604,7 +610,6 @@ def editar(id):
             cursor.execute("SELECT video_url FROM reparaciones WHERE id = %s", (id,))
             video_url = cursor.fetchone()[0]
         
-        # Si se marca testigo técnico, guardar fecha
         fecha_prueba = None
         if testigo_tecnico:
             fecha_prueba = actualizado
@@ -620,9 +625,9 @@ def editar(id):
             fecha_fin_str = fecha_fin.strftime("%d/%m/%Y")
             fecha_entrega_str = fecha_entrega_obj.strftime("%d/%m/%Y")
             
-            msg_telegram = f"✅ *EQUIPO ENTREGADO - GARANTÍA 2 MESES*\n📌 Código: {codigo}\n👤 Cliente: {cliente_nombre}\n🔧 Equipo: {equipo} {marca}\n📅 Entrega: {fecha_entrega_str}\n🛡️ Garantía hasta: {fecha_fin_str}"
-            enviar_telegram(msg_telegram)
-            enviar_whatsapp(msg_telegram)
+            msg = f"✅ *EQUIPO ENTREGADO - GARANTÍA 2 MESES*\n📌 Código: {codigo}\n👤 Cliente: {cliente_nombre}\n🔧 Equipo: {equipo} {marca}\n📅 Entrega: {fecha_entrega_str}\n🛡️ Garantía hasta: {fecha_fin_str}"
+            enviar_telegram(msg)
+            enviar_whatsapp(msg)
         
         if estado_nuevo == 'lista' and estado_anterior != 'lista':
             msg = f"✅ *EQUIPO LISTO*\n📌 Código: {codigo}\n👤 Cliente: {cliente_nombre}\n🔧 Equipo: {equipo} {marca}"
@@ -657,7 +662,6 @@ def editar(id):
     if r is None:
         return "Reparación no encontrada", 404
     
-    # Verificar si tiene testigo técnico
     testigo_checked = 'checked' if len(r) > 15 and r[15] else ''
     
     return f'''
@@ -755,7 +759,7 @@ def foto_garantia(id):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("SELECT foto_url FROM garantias WHERE id = %s", (id,))
-    r = cur.fetchone()
+    r = cursor.fetchone()
     conn.close()
     if r and r[0]:
         return f'<html><body style="display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;"><img src="{r[0]}" style="max-width:90%;border-radius:20px;"></body></html>'
