@@ -168,72 +168,150 @@ LISTADO = '''
     <title>Listado de Reparaciones</title>
     <style>
         * { box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; margin: 0; padding: 20px; }
-        .container { max-width: 1400px; margin: 0 auto; background: white; padding: 25px; border-radius: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); overflow-x: auto; }
-        h1 { color: #1a1a2e; margin: 0 0 20px 0; font-size: 32px; }
-        .btn-group { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
-        .btn { display: inline-block; background: #28a745; color: white; padding: 10px 24px; text-decoration: none; border-radius: 50px; margin: 0; font-size: 14px; font-weight: bold; transition: 0.3s; }
-        .btn:hover { transform: scale(1.02); }
-        .btn-small { padding: 8px 16px; font-size: 12px; background: #007bff; color: white; text-decoration: none; border-radius: 25px; display: inline-block; transition: 0.3s; }
-        .btn-small:hover { transform: scale(1.02); }
-        .buscar-form { margin: 20px 0; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-        .buscar-form input { padding: 10px 18px; border: 1px solid #ddd; border-radius: 50px; width: 260px; font-size: 14px; }
-        table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 1000px; }
-        th, td { border: 1px solid #e0e0e0; padding: 12px 10px; text-align: left; vertical-align: middle; }
-        th { background: linear-gradient(135deg, #007bff, #0056b3); color: white; font-weight: bold; position: sticky; top: 0; }
-        tr:nth-child(even) { background: #f8f9fa; }
-        tr:hover { background: #f1f1f1; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: #f0f2f5; 
+            margin: 0; 
+            padding: 15px; 
+        }
+        .container { 
+            max-width: 100%; 
+            margin: 0 auto; 
+            background: white; 
+            padding: 15px; 
+            border-radius: 20px; 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1); 
+            overflow-x: auto; 
+        }
+        h1 { 
+            color: #1a1a2e; 
+            margin: 0 0 15px 0; 
+            font-size: 24px; 
+        }
+        .btn-group { 
+            display: flex; 
+            gap: 10px; 
+            flex-wrap: wrap; 
+            margin-bottom: 15px; 
+        }
+        .btn { 
+            display: inline-block; 
+            background: #28a745; 
+            color: white; 
+            padding: 8px 16px; 
+            text-decoration: none; 
+            border-radius: 50px; 
+            font-size: 13px; 
+            font-weight: bold; 
+        }
+        .btn-small { 
+            padding: 6px 12px; 
+            font-size: 11px; 
+            background: #007bff; 
+            color: white; 
+            text-decoration: none; 
+            border-radius: 25px; 
+            display: inline-block; 
+        }
+        .buscar-form { 
+            margin: 15px 0; 
+            display: flex; 
+            gap: 8px; 
+            flex-wrap: wrap; 
+            align-items: center; 
+        }
+        .buscar-form input { 
+            padding: 8px 12px; 
+            border: 1px solid #ddd; 
+            border-radius: 50px; 
+            flex: 1; 
+            min-width: 180px; 
+            font-size: 13px; 
+        }
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            font-size: 12px; 
+            min-width: 800px; 
+        }
+        th, td { 
+            border: 1px solid #ddd; 
+            padding: 8px 6px; 
+            text-align: left; 
+            vertical-align: middle; 
+        }
+        th { 
+            background: #007bff; 
+            color: white; 
+            font-weight: bold; 
+            font-size: 12px; 
+            white-space: nowrap;
+        }
+        tr:nth-child(even) { 
+            background: #f8f9fa; 
+        }
         .estado-en_reparacion { color: #ff9800; font-weight: bold; }
         .estado-espera_repuesto { color: #f44336; font-weight: bold; }
         .estado-lista { color: #4caf50; font-weight: bold; }
         .estado-entregado { color: #2196f3; font-weight: bold; }
         .estado-en_garantia { color: #9c27b0; font-weight: bold; }
-        .video-link { font-size: 11px; }
+        @media (max-width: 768px) {
+            body { padding: 10px; }
+            .container { padding: 10px; }
+            th, td { padding: 6px 4px; font-size: 10px; }
+            .btn { padding: 5px 10px; font-size: 11px; }
+            h1 { font-size: 18px; }
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>📋 Listado de Reparaciones</h1>
-        <div class="btn-group">
-            <a href="/" class="btn">➕ Nueva reparación</a>
-            <a href="/garantias" class="btn">🛡️ Garantías</a>
-            <a href="/consulta" class="btn">🔍 Consultar ticket</a>
-        </div>
-        <form action="/buscar" method="GET" class="buscar-form">
-            <input type="text" name="q" placeholder="🔍 Buscar por nombre de cliente..." value="{{ busqueda }}">
-            <button type="submit" class="btn-small" style="background: #007bff; border: none; cursor: pointer;">Buscar</button>
-            <a href="/listado" class="btn-small" style="background: #dc3545;">Ver todos</a>
-        </form>
-        <div style="overflow-x: auto;">
-        <tr>
-            <thead>
-                <tr>
-                    <th>Código</th><th>Cliente</th><th>Teléfono</th><th>Equipo</th><th>Marca</th><th>Falla</th>
-                    <th>Estado</th><th>Entrada</th><th>Salida</th><th>Técnico</th><th>Foto</th><th>Video</th><th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for r in reparaciones %}
-                <tr>
-                    <td>{{ r[1] }}</td>
-                    <td>{{ r[2] }}</td>
-                    <td>{{ r[3] }}</td>
-                    <td>{{ r[4] }}</td>
-                    <td>{{ r[5] if r[5] else '' }}</td>
-                    <td>{{ r[6][:50] if r[6] else '' }}{% if r[6] and r[6]|length > 50 %}...{% endif %}</td>
-                    <td class="estado-{{ r[11] }}">{{ r[11].replace('_', ' ') }}</td>
-                    <td>{{ r[9][:10] if r[9] else '' }}</td>
-                    <td>{% if r[10] %}{{ r[10][:10] }}{% else %}—{% endif %}</td>
-                    <td>{{ r[8] if r[8] else '—' }}</td>
-                    <td>{% if r[13] %}<a href="/foto/{{ r[0] }}" target="_blank" class="btn-small">📷</a>{% else %}—{% endif %}</td>
-                    <td class="video-link">{% if r[14] %}<a href="/video/{{ r[0] }}" target="_blank" class="btn-small">🎥 Ver</a>{% else %}—{% endif %}</td>
-                    <td><a href="/editar/{{ r[0] }}" class="btn-small">✏️ Editar</a></td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        </div>
+<div class="container">
+    <h1>📋 Listado de Reparaciones</h1>
+    <div class="btn-group">
+        <a href="/" class="btn">➕ Nueva reparación</a>
+        <a href="/garantias" class="btn">🛡️ Garantías</a>
+        <a href="/consulta" class="btn">🔍 Consultar ticket</a>
     </div>
+    <form action="/buscar" method="GET" class="buscar-form">
+        <input type="text" name="q" placeholder="🔍 Buscar por nombre de cliente..." value="{{ busqueda }}">
+        <button type="submit" class="btn-small">Buscar</button>
+        <a href="/listado" class="btn-small" style="background:#dc3545;">Ver todos</a>
+    </form>
+    <div style="overflow-x: auto;">
+    <table>
+        <thead>
+            <tr>
+                <th>Código</th><th>Cliente</th><th>Teléfono</th>
+                <th>Equipo</th><th>Marca</th><th>Falla</th>
+                <th>Estado</th><th>Entrada</th><th>Salida</th>
+                <th>Técnico</th><th>Foto</th><th>Video</th><th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in reparaciones %}
+            <tr>
+                <td>{{ r[1] }}</td>
+                <td>{{ r[2] }}</td>
+                <td>{{ r[3] }}</td>
+                <td>{{ r[4] }} {% if r[5] %}({{ r[5] }}){% endif %}</td>
+                <td>{{ r[5] if r[5] else '-' }}</td>
+                <td>{{ r[6][:40] if r[6] else '-' }}{% if r[6] and r[6]|length > 40 %}...{% endif %}</td>
+                <td class="estado-{{ r[11] }}">{{ r[11].replace('_', ' ') }}</td>
+                <td>{{ r[9][:10] if r[9] else '-' }}</td>
+                <td>{% if r[10] %}{{ r[10][:10] }}{% else %}-{% endif %}</td>
+                <td>{{ r[8] if r[8] else '-' }}</td>
+                <td>{% if r[13] %}<a href="/foto/{{ r[0] }}" target="_blank">📷</a>{% else %}-{% endif %}</td>
+                <td>{% if r[14] %}<a href="/video/{{ r[0] }}" target="_blank">🎥</a>{% else %}-{% endif %}</td>
+                <td><a href="/editar/{{ r[0] }}" class="btn-small">✏️</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    {% if not reparaciones %}
+    <p style="text-align:center;color:#666;padding:30px;">No hay reparaciones registradas.</p>
+    {% endif %}
+</div>
 </body>
 </html>
 '''
@@ -268,7 +346,7 @@ GARANTIAS_HTML = '''
             <a href="/listado" class="btn">📋 Listado</a>
             <a href="/consulta" class="btn">🔍 Consultar ticket</a>
         </div>
-        <table>
+        <tr>
             <thead>
                 <tr>
                     <th>Código</th><th>Cliente</th><th>Equipo</th><th>Estado</th>
@@ -537,7 +615,7 @@ def consulta():
     return '''
     <!DOCTYPE html>
     <html>
-    <head>
+   <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>Consultar Ticket</title>
@@ -577,7 +655,6 @@ def editar(id):
     cursor = conn.cursor()
     
     if request.method == "POST":
-        # Obtener datos actuales para notificaciones
         cursor.execute("SELECT codigo, cliente_nombre, equipo, marca FROM reparaciones WHERE id = %s", (id,))
         r = cursor.fetchone()
         codigo = r[0]
@@ -585,7 +662,6 @@ def editar(id):
         equipo_old = r[2]
         marca_old = r[3]
         
-        # Datos del formulario
         equipo = request.form.get("equipo")
         marca = request.form.get("marca")
         falla = request.form.get("falla")
@@ -595,7 +671,6 @@ def editar(id):
         testigo_tecnico = request.form.get("testigo_tecnico") == 'on'
         actualizado = datetime.datetime.now().isoformat()
         
-        # Subir video si existe
         video_url = None
         if 'video' in request.files:
             video = request.files['video']
@@ -611,16 +686,13 @@ def editar(id):
             cursor.execute("SELECT video_url FROM reparaciones WHERE id = %s", (id,))
             video_url = cursor.fetchone()[0]
         
-        # Fecha de prueba si se marca testigo
         fecha_prueba = None
         if testigo_tecnico:
             fecha_prueba = actualizado
         
-        # Obtener estado anterior
         cursor.execute("SELECT estado FROM reparaciones WHERE id = %s", (id,))
         estado_anterior = cursor.fetchone()[0]
         
-        # Si cambia a ENTREGADO
         fecha_salida = None
         if estado_nuevo == 'entregado' and estado_anterior != 'entregado':
             fecha_salida = actualizado
@@ -633,13 +705,11 @@ def editar(id):
             enviar_telegram(msg)
             enviar_whatsapp(msg)
         
-        # Si cambia a LISTO
         if estado_nuevo == 'lista' and estado_anterior != 'lista':
             msg = f"✅ *EQUIPO LISTO*\n📌 Código: {codigo}\n👤 Cliente: {cliente_nombre}\n🔧 Equipo: {equipo} {marca}"
             enviar_telegram(msg)
             enviar_whatsapp(msg)
         
-        # Actualizar en la base de datos
         if video_url:
             cursor.execute('''
                 UPDATE reparaciones 
@@ -657,7 +727,6 @@ def editar(id):
             ''', (equipo, marca, falla, presupuesto, tecnico, estado_nuevo, 
                   actualizado, testigo_tecnico, fecha_prueba, id))
         
-        # Si cambia a ENTREGADO, guardar fecha_salida
         if fecha_salida:
             cursor.execute("UPDATE reparaciones SET fecha_salida = %s WHERE id = %s", (fecha_salida, id))
         
@@ -665,7 +734,6 @@ def editar(id):
         conn.close()
         return redirect(url_for('listado'))
     
-    # GET: mostrar formulario de edición
     cursor.execute("SELECT * FROM reparaciones WHERE id = %s", (id,))
     r = cursor.fetchone()
     conn.close()
