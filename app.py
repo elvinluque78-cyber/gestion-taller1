@@ -40,12 +40,13 @@ def init_db():
         fecha_entrada TEXT NOT NULL,
         fecha_salida TEXT,
         estado TEXT NOT NULL,
+        notificado_24h INTEGER,
+        creado_en TEXT NOT NULL,
+        actualizado_en TEXT NOT NULL,
         foto_url TEXT,
         video_url TEXT,
-        testigo_tecnico BOOLEAN DEFAULT FALSE,
-        fecha_prueba TEXT,
-        creado_en TEXT NOT NULL,
-        actualizado_en TEXT NOT NULL
+        testigo_tecnico BOOLEAN,
+        fecha_prueba TEXT
     )''')
     cur.execute('''CREATE TABLE IF NOT EXISTS garantias (
         id SERIAL PRIMARY KEY,
@@ -174,7 +175,6 @@ LISTADO = '''
         .estado-espera_repuesto { color: #f44336; font-weight: bold; }
         .estado-lista { color: #4caf50; font-weight: bold; }
         .estado-entregado { color: #2196f3; font-weight: bold; }
-        .estado-en_garantia { color: #9c27b0; font-weight: bold; }
         .foto-mini { max-width: 50px; height: auto; border-radius: 5px; cursor: pointer; }
         .oculto { display: none; }
         .btn-foto { background: #17a2b8; color: white; padding: 6px 12px; border: none; border-radius: 25px; cursor: pointer; font-size: 11px; margin-bottom: 15px; }
@@ -238,15 +238,15 @@ LISTADO = '''
                 <td>{% if r[10] %}{{ r[10][:10] }}{% else %}-{% endif %}</td>
                 <td>{{ r[8] if r[8] else '-' }}</td>
                 <td class="foto-ticket oculto">
-                    {% if r[13] %}
-                    <img src="{{ r[13] }}" class="foto-mini" onclick="verFoto('{{ r[13] }}')">
+                    {% if r[15] %}
+                    <img src="{{ r[15] }}" class="foto-mini" onclick="verFoto('{{ r[15] }}')">
                     {% else %}
                     -
                     {% endif %}
                 </td>
                 <td>
-                    {% if r[14] %}
-                    <a href="{{ r[14] }}" target="_blank" class="btn-small">🎥 Ver</a>
+                    {% if r[16] %}
+                    <a href="{{ r[16] }}" target="_blank" class="btn-small">🎥 Ver</a>
                     {% else %}
                     -
                     {% endif %}
@@ -467,8 +467,8 @@ DETALLE_TICKET = '''
         <div class="info"><span class="label">Falla:</span> {{ reparacion[6] }}</div>
         <div class="info"><span class="label">Estado:</span> {{ reparacion[11].replace('_', ' ') }}</div>
         <div class="info"><span class="label">Ingreso:</span> {{ reparacion[9][:10] if reparacion[9] else '-' }}</div>
-        {% if reparacion[13] %}
-        <div class="foto"><img src="{{ reparacion[13] }}" alt="Foto del equipo"></div>
+        {% if reparacion[15] %}
+        <div class="foto"><img src="{{ reparacion[15] }}" alt="Foto del equipo"></div>
         {% endif %}
         <a href="/consulta" class="volver">← Nueva consulta</a>
     </div>
@@ -491,11 +491,9 @@ def editar(id):
         cliente_nombre = request.form.get('cliente_nombre')
         cliente_telefono = request.form.get('cliente_telefono')
         
-        # Obtener datos actuales para notificaciones
         cursor.execute("SELECT * FROM reparaciones WHERE id = %s", (id,))
         reparacion = cursor.fetchone()
         
-        # Actualizar foto si se subió
         if 'foto' in request.files and request.files['foto'].filename:
             try:
                 cloudinary.config(cloud_name=CLOUD_NAME, api_key=API_KEY, api_secret=API_SECRET)
@@ -505,7 +503,6 @@ def editar(id):
             except Exception as e:
                 print(f"⚠️ Error al subir foto: {e}")
         
-        # Actualizar datos
         cursor.execute('''
             UPDATE reparaciones 
             SET cliente_nombre = %s, cliente_telefono = %s, equipo = %s, marca = %s, falla = %s, 
@@ -514,13 +511,11 @@ def editar(id):
         ''', (cliente_nombre, cliente_telefono, equipo, marca, falla, tecnico, nuevo_estado, 
               datetime.datetime.now().isoformat(), id))
         
-        # Si cambió a LISTO
         if nuevo_estado == 'lista' and reparacion[11] != 'lista':
             mensaje = f"✅ TICKET LISTO {reparacion[1]}\nCliente: {reparacion[2]}\nEquipo: {reparacion[4]}\nHorario retiro: Lunes a Viernes 9am-4pm"
             enviar_whatsapp(mensaje)
             enviar_telegram(mensaje)
         
-        # Si cambió a ENTREGADO
         if nuevo_estado == 'entregado' and reparacion[11] != 'entregado':
             fecha_salida = datetime.datetime.now().isoformat()
             cursor.execute("UPDATE reparaciones SET fecha_salida = %s WHERE id = %s", (fecha_salida, id))
@@ -528,11 +523,10 @@ def editar(id):
             enviar_whatsapp(mensaje)
             enviar_telegram(mensaje)
             
-            # Insertar en garantías
             cursor.execute('''
                 INSERT INTO garantias (codigo, cliente_nombre, cliente_telefono, equipo, marca, falla_original, tecnico, fecha_entrada_garantia, fecha_salida_garantia, estado_garantia, foto_url)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            ''', (reparacion[1], reparacion[2], reparacion[3], reparacion[4], reparacion[5], reparacion[6], reparacion[8], reparacion[9], fecha_salida, 'activa', reparacion[13]))
+            ''', (reparacion[1], reparacion[2], reparacion[3], reparacion[4], reparacion[5], reparacion[6], reparacion[8], reparacion[9], fecha_salida, 'activa', reparacion[15]))
         
         conn.commit()
         conn.close()
@@ -579,10 +573,10 @@ EDITAR_TICKET = '''
                 <option value="no_procede" {% if reparacion[11] == 'no_procede' %}selected{% endif %}>No Procede</option>
             </select>
             <input type="file" name="foto" accept="image/*">
-            {% if reparacion[13] %}
+            {% if reparacion[15] %}
             <div class="foto-actual">
                 <p>Foto actual:</p>
-                <img src="{{ reparacion[13] }}">
+                <img src="{{ reparacion[15] }}">
             </div>
             {% endif %}
             <button type="submit">Guardar cambios</button>
