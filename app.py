@@ -6,7 +6,6 @@ import os
 import re
 import cloudinary
 import cloudinary.uploader
-from twilio.rest import Client
 from functools import wraps
 
 app = Flask(__name__)
@@ -176,7 +175,7 @@ LISTADO = '''
         .estado-lista { color: #4caf50; font-weight: bold; }
         .estado-entregado { color: #2196f3; font-weight: bold; }
         .estado-en_garantia { color: #9c27b0; font-weight: bold; }
-        .foto { max-width: 60px; height: auto; border-radius: 5px; cursor: pointer; }
+        .foto-mini { max-width: 50px; height: auto; border-radius: 5px; cursor: pointer; }
         .oculto { display: none; }
         .btn-foto { background: #17a2b8; color: white; padding: 6px 12px; border: none; border-radius: 25px; cursor: pointer; font-size: 11px; margin-bottom: 15px; }
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); }
@@ -240,7 +239,7 @@ LISTADO = '''
                 <td>{{ r[8] if r[8] else '-' }}</td>
                 <td class="foto-ticket oculto">
                     {% if r[13] %}
-                    <img src="{{ r[13] }}" class="foto" onclick="verFoto('{{ r[13] }}')">
+                    <img src="{{ r[13] }}" class="foto-mini" onclick="verFoto('{{ r[13] }}')">
                     {% else %}
                     -
                     {% endif %}
