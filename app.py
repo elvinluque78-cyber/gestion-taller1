@@ -80,7 +80,8 @@ def enviar_whatsapp(mensaje):
     try:
         url = f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_SID}/Messages.json"
         data = {"From": TWILIO_FROM, "To": TECNICO_TO, "Body": mensaje}
-        requests.post(url, data=data, auth=(TWILIO_SID, TWILIO_AUTH), timeout=10)
+        response = requests.post(url, data=data, auth=(TWILIO_SID, TWILIO_AUTH), timeout=10)
+        print(f"WhatsApp response: {response.status_code}")
     except Exception as e:
         print(f"Error WhatsApp: {e}")
 
@@ -295,7 +296,7 @@ GARANTIAS_HTML = '''
             <a href="/listado" class="btn">📋 Listado</a>
             <a href="/consulta" class="btn">🔍 Consultar ticket</a>
         </div>
-        </table>
+        <table>
             <thead>
                 <tr>
                     <th>Código</th><th>Cliente</th><th>Equipo</th><th>Estado</th>
@@ -350,7 +351,21 @@ def nueva():
         conn.commit()
         conn.close()
         
-        mensaje_whatsapp = f"🧾 NUEVO TICKET {codigo}\nCliente: {request.form.get('cliente_nombre')}\nEquipo: {request.form.get('equipo')}"
+        # Mensaje WhatsApp completo para NUEVO TICKET
+        mensaje_whatsapp = f"""🧾 *NUEVO TICKET - ELVIN TECHNOLOGY*
+
+📌 *Código:* {codigo}
+👤 *Cliente:* {request.form.get('cliente_nombre')}
+📞 *Teléfono:* {request.form.get('cliente_telefono')}
+🔧 *Equipo:* {request.form.get('equipo')} {request.form.get('marca')}
+⚠️ *Falla:* {request.form.get('falla')}
+💰 *Presupuesto:* ${request.form.get('presupuesto') or '0'}
+👨‍🔧 *Técnico:* {request.form.get('tecnico')}
+📅 *Fecha ingreso:* {ahora[:10]}
+
+📸 *Foto:* {foto_url if foto_url else 'Sin foto'}
+
+✅ *REENVÍA ESTE MENSAJE AL CLIENTE*"""
         enviar_whatsapp(mensaje_whatsapp)
         
         return redirect(url_for('nueva'))
@@ -507,15 +522,47 @@ def editar(id):
         ''', (cliente_nombre, cliente_telefono, equipo, marca, falla, tecnico, nuevo_estado, 
               datetime.datetime.now().isoformat(), id))
         
+        # Mensaje WhatsApp completo para TICKET LISTO
         if nuevo_estado == 'lista' and reparacion[11] != 'lista':
-            mensaje = f"✅ TICKET LISTO {reparacion[1]}\nCliente: {reparacion[2]}\nEquipo: {reparacion[4]}\nHorario retiro: Lunes a Viernes 9am-4pm"
+            mensaje = f"""✅ *TICKET LISTO - ELVIN TECHNOLOGY*
+
+📌 *Código:* {reparacion[1]}
+👤 *Cliente:* {reparacion[2]}
+📞 *Teléfono:* {reparacion[3]}
+🔧 *Equipo:* {reparacion[4]} {reparacion[5] if reparacion[5] else ''}
+⚠️ *Falla:* {reparacion[6]}
+👨‍🔧 *Técnico:* {reparacion[8]}
+📅 *Fecha ingreso:* {reparacion[9][:10] if reparacion[9] else '-'}
+
+📍 *Horario de retiro:* Lunes a Viernes de 9am a 4pm
+
+✅ *REENVÍA ESTE MENSAJE AL CLIENTE*"""
             enviar_whatsapp(mensaje)
             enviar_telegram(mensaje)
         
+        # Mensaje WhatsApp completo para TICKET ENTREGADO con garantía
         if nuevo_estado == 'entregado' and reparacion[11] != 'entregado':
             fecha_salida = datetime.datetime.now().isoformat()
             cursor.execute("UPDATE reparaciones SET fecha_salida = %s WHERE id = %s", (fecha_salida, id))
-            mensaje = f"🎉 TICKET ENTREGADO {reparacion[1]}\nCliente: {reparacion[2]}\nEquipo: {reparacion[4]}\nGarantía 2 meses"
+            fecha_garantia = (datetime.datetime.now() + datetime.timedelta(days=60)).strftime("%d/%m/%Y")
+            mensaje = f"""🎉 *TICKET ENTREGADO - ELVIN TECHNOLOGY*
+
+📌 *Código:* {reparacion[1]}
+👤 *Cliente:* {reparacion[2]}
+📞 *Teléfono:* {reparacion[3]}
+🔧 *Equipo:* {reparacion[4]} {reparacion[5] if reparacion[5] else ''}
+⚠️ *Falla:* {reparacion[6]}
+💰 *Presupuesto:* ${reparacion[7] if reparacion[7] else '0'}
+👨‍🔧 *Técnico:* {reparacion[8]}
+📅 *Fecha ingreso:* {reparacion[9][:10] if reparacion[9] else '-'}
+📅 *Fecha entrega:* {fecha_salida[:10]}
+
+🛡️ *GARANTÍA:* 2 meses
+📅 *Vence:* {fecha_garantia}
+
+✨ *Gracias por confiar en Elvin Technology*
+
+✅ *REENVÍA ESTE MENSAJE AL CLIENTE*"""
             enviar_whatsapp(mensaje)
             enviar_telegram(mensaje)
             
