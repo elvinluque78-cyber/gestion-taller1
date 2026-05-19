@@ -73,7 +73,7 @@ CLOUD_NAME = "drpmg1lso"
 API_KEY = "519922232242146"
 API_SECRET = "kxsPgE73Eu59VQ03qSCvWCeaHw4"
 
-# ==================== WHATSAPP (Credenciales directas) ====================
+# ==================== WHATSAPP ====================
 TWILIO_SID = "AC1eee15ecfd80fc2a2eadaaf00326ea0b"
 TWILIO_AUTH = "e0149c3decfd1a4afa945fdf1ee6f1bd"
 TWILIO_FROM = "whatsapp:+14155238886"
@@ -105,18 +105,6 @@ def generar_codigo():
     conn.close()
     num = 1 if not ult else int(ult[0].split('-')[1]) + 1
     return f"E-{num:03d}"
-
-def limpiar_numero_telefono(numero):
-    if not numero:
-        return None
-    numero_limpio = re.sub(r'\D', '', numero)
-    if numero_limpio.startswith('0'):
-        numero_limpio = '58' + numero_limpio[1:]
-    elif len(numero_limpio) == 11 and not numero_limpio.startswith('58'):
-        numero_limpio = '58' + numero_limpio
-    elif len(numero_limpio) == 10:
-        numero_limpio = '58' + numero_limpio
-    return numero_limpio
 
 # ==================== HTML ====================
 FORMULARIO = '''
@@ -176,6 +164,7 @@ LISTADO = '''
         .btn-group { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; }
         .btn { display: inline-block; background: #28a745; color: white; padding: 8px 16px; text-decoration: none; border-radius: 50px; font-size: 13px; font-weight: bold; }
         .btn-small { padding: 6px 12px; font-size: 11px; background: #007bff; color: white; text-decoration: none; border-radius: 25px; display: inline-block; }
+        .btn-editar { background: #ffc107; color: #333; }
         .buscar-form { margin: 15px 0; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
         .buscar-form input { padding: 8px 12px; border: 1px solid #ddd; border-radius: 50px; flex: 1; min-width: 180px; font-size: 13px; }
         table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 800px; }
@@ -187,18 +176,23 @@ LISTADO = '''
         .estado-lista { color: #4caf50; font-weight: bold; }
         .estado-entregado { color: #2196f3; font-weight: bold; }
         .estado-en_garantia { color: #9c27b0; font-weight: bold; }
-        .foto { max-width: 80px; height: auto; border-radius: 5px; }
+        .foto { max-width: 60px; height: auto; border-radius: 5px; cursor: pointer; }
         .oculto { display: none; }
         .btn-foto { background: #17a2b8; color: white; padding: 6px 12px; border: none; border-radius: 25px; cursor: pointer; font-size: 11px; margin-bottom: 15px; }
-        @media (max-width: 768px) {
-            body { padding: 10px; }
-            .container { padding: 10px; }
-            th, td { padding: 6px 4px; font-size: 10px; }
-            .btn { padding: 5px 10px; font-size: 11px; }
-            h1 { font-size: 18px; }
-        }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); }
+        .modal-content { margin: auto; display: block; max-width: 90%; max-height: 90%; margin-top: 50px; }
+        .close { position: absolute; top: 20px; right: 35px; color: white; font-size: 40px; font-weight: bold; cursor: pointer; }
     </style>
     <script>
+        function verFoto(url) {
+            var modal = document.getElementById('modal');
+            var modalImg = document.getElementById('modalImg');
+            modal.style.display = "block";
+            modalImg.src = url;
+        }
+        function cerrarModal() {
+            document.getElementById('modal').style.display = "none";
+        }
         function toggleFotos() {
             var fotos = document.querySelectorAll('.foto-ticket');
             fotos.forEach(function(foto) {
@@ -244,9 +238,21 @@ LISTADO = '''
                 <td>{{ r[9][:10] if r[9] else '-' }}</td>
                 <td>{% if r[10] %}{{ r[10][:10] }}{% else %}-{% endif %}</td>
                 <td>{{ r[8] if r[8] else '-' }}</td>
-                <td class="foto-ticket oculto">{% if r[13] %}<img src="{{ r[13] }}" class="foto">{% else %}-{% endif %}</td>
-                <td>{% if r[14] %}<a href="{{ r[14] }}" target="_blank">🎥</a>{% else %}-{% endif %}</td>
-                <td><a href="/editar/{{ r[0] }}" class="btn-small">✏️ Editar</a></td>
+                <td class="foto-ticket oculto">
+                    {% if r[13] %}
+                    <img src="{{ r[13] }}" class="foto" onclick="verFoto('{{ r[13] }}')">
+                    {% else %}
+                    -
+                    {% endif %}
+                </td>
+                <td>
+                    {% if r[14] %}
+                    <a href="{{ r[14] }}" target="_blank" class="btn-small">🎥 Ver</a>
+                    {% else %}
+                    -
+                    {% endif %}
+                </td>
+                <td><a href="/editar/{{ r[0] }}" class="btn-small btn-editar">✏️ Editar</a></td>
             </tr>
             {% endfor %}
         </tbody>
@@ -255,6 +261,10 @@ LISTADO = '''
     {% if not reparaciones %}
     <p style="text-align:center;color:#666;padding:30px;">No hay reparaciones registradas.</p>
     {% endif %}
+</div>
+<div id="modal" class="modal" onclick="cerrarModal()">
+    <span class="close">&times;</span>
+    <img class="modal-content" id="modalImg">
 </div>
 </body>
 </html>
@@ -290,7 +300,7 @@ GARANTIAS_HTML = '''
             <a href="/listado" class="btn">📋 Listado</a>
             <a href="/consulta" class="btn">🔍 Consultar ticket</a>
         </div>
-        </table>
+        <table>
             <thead>
                 <tr>
                     <th>Código</th><th>Cliente</th><th>Equipo</th><th>Estado</th>
@@ -344,11 +354,6 @@ def nueva():
               request.form.get('tecnico'), ahora, 'en_reparacion', ahora, ahora, foto_url))
         conn.commit()
         conn.close()
-        
-        mensaje_telegram = f"🆕 *Nueva reparación*\n📌 Código: {codigo}\n👤 Cliente: {request.form.get('cliente_nombre')}\n📞 Tel: {request.form.get('cliente_telefono')}\n🔧 Equipo: {request.form.get('equipo')} {request.form.get('marca')}\n⚠️ Falla: {request.form.get('falla')}\n💰 Presupuesto: {request.form.get('presupuesto')}\n👨‍🔧 Técnico: {request.form.get('tecnico')}"
-        if foto_url:
-            mensaje_telegram += f"\n📸 Foto: {foto_url}"
-        enviar_telegram(mensaje_telegram)
         
         mensaje_whatsapp = f"🧾 NUEVO TICKET {codigo}\nCliente: {request.form.get('cliente_nombre')}\nEquipo: {request.form.get('equipo')}\n✅ REENVIA ESTE MENSAJE AL CLIENTE"
         enviar_whatsapp(mensaje_whatsapp)
@@ -463,9 +468,6 @@ DETALLE_TICKET = '''
         <div class="info"><span class="label">Falla:</span> {{ reparacion[6] }}</div>
         <div class="info"><span class="label">Estado:</span> {{ reparacion[11].replace('_', ' ') }}</div>
         <div class="info"><span class="label">Ingreso:</span> {{ reparacion[9][:10] if reparacion[9] else '-' }}</div>
-        {% if reparacion[14] %}
-        <div class="info"><span class="label">Video:</span> <a href="{{ reparacion[14] }}" target="_blank">Ver video</a></div>
-        {% endif %}
         {% if reparacion[13] %}
         <div class="foto"><img src="{{ reparacion[13] }}" alt="Foto del equipo"></div>
         {% endif %}
