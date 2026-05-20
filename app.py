@@ -202,8 +202,6 @@ LISTADO = '''
     <h1>📋 Listado de Reparaciones</h1>
     <div class="btn-group">
         <a href="/" class="btn">➕ Nueva reparación</a>
-        <a href="/garantias" class="btn">🛡️ Garantías</a>
-        <a href="/consulta" class="btn">🔍 Consultar ticket</a>
     </div>
     <button class="btn-foto" onclick="toggleFotos()">📸 Mostrar/Ocultar Fotos</button>
     <form action="/buscar" method="GET" class="buscar-form">
@@ -370,7 +368,6 @@ DETALLE_TICKET = '''
         .foto img { max-width: 100%; border-radius: 10px; }
         .btn { display: inline-block; background: #28a745; color: white; padding: 10px 20px; text-decoration: none; border-radius: 50px; margin-top: 20px; margin-right: 10px; border: none; cursor: pointer; font-size: 14px; }
         .btn-listo { background: #28a745; }
-        .btn-entregado { background: #007bff; }
         .btn-volver { background: #6c757d; display: inline-block; padding: 10px 20px; text-decoration: none; color: white; border-radius: 50px; margin-top: 20px; }
         .btn-group { margin-top: 20px; }
         .mensaje { padding: 10px; border-radius: 10px; margin-bottom: 20px; }
@@ -403,14 +400,13 @@ DETALLE_TICKET = '''
         
         <div class="btn-group">
             <button class="btn btn-listo" onclick="cambiarEstado('lista')">✅ Marcar como LISTO</button>
-            <button class="btn btn-entregado" onclick="cambiarEstado('entregado')">🎉 Marcar como ENTREGADO</button>
             <a href="/consulta" class="btn-volver">← Nueva consulta</a>
         </div>
     </div>
     
     <script>
         function cambiarEstado(nuevoEstado) {
-            if (!confirm('¿Estás seguro de marcar este ticket como ' + nuevoEstado.toUpperCase() + '?')) {
+            if (!confirm('¿Estás seguro de marcar este ticket como LISTO?')) {
                 return;
             }
             
@@ -424,8 +420,8 @@ DETALLE_TICKET = '''
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    document.getElementById('estado_actual').innerText = nuevoEstado.replace('_', ' ');
-                    alert('✅ Ticket actualizado a ' + nuevoEstado);
+                    document.getElementById('estado_actual').innerText = 'LISTO';
+                    alert('✅ Ticket marcado como LISTO');
                     location.reload();
                 } else {
                     alert('❌ Error: ' + data.error);
@@ -546,7 +542,7 @@ def cambiar_estado_desde_consulta():
     if not codigo or not nuevo_estado:
         return {"success": False, "error": "Faltan datos"}
     
-    if nuevo_estado not in ['lista', 'entregado']:
+    if nuevo_estado != 'lista':
         return {"success": False, "error": "Estado no permitido"}
     
     try:
@@ -561,43 +557,13 @@ def cambiar_estado_desde_consulta():
         
         estado_actual = reparacion[11]
         
-        if nuevo_estado == 'entregado':
-            fecha_salida = datetime.datetime.now().isoformat()
-            cursor.execute("UPDATE reparaciones SET estado = %s, fecha_salida = %s, actualizado_en = %s WHERE codigo = %s", 
-                          (nuevo_estado, fecha_salida, datetime.datetime.now().isoformat(), codigo))
-            
-            fecha_garantia = (datetime.datetime.now() + datetime.timedelta(days=60)).strftime("%d/%m/%Y")
-            mensaje = f"""🎉 *TICKET ENTREGADO - ELVIN TECHNOLOGY*
-
-📌 *Código:* {reparacion[1]}
-👤 *Cliente:* {reparacion[2]}
-📞 *Teléfono:* {reparacion[3]}
-🔧 *Equipo:* {reparacion[4]} {reparacion[5] if reparacion[5] else ''}
-⚠️ *Falla:* {reparacion[6]}
-💰 *Presupuesto:* ${reparacion[7] if reparacion[7] else '0'}
-👨‍🔧 *Técnico:* {reparacion[8]}
-📅 *Fecha ingreso:* {reparacion[9][:10] if reparacion[9] else '-'}
-📅 *Fecha entrega:* {fecha_salida[:10]}
-
-🛡️ *GARANTÍA:* 2 meses
-📅 *Vence:* {fecha_garantia}
-
-✨ *Gracias por confiar en Elvin Technology*
-
-✅ *REENVÍA ESTE MENSAJE AL CLIENTE*"""
-            enviar_whatsapp(mensaje)
-            enviar_telegram(mensaje)
-            
-            # Insertar en garantías
-            cursor.execute('''
-                INSERT INTO garantias (codigo, cliente_nombre, cliente_telefono, equipo, marca, falla_original, tecnico, fecha_entrada_garantia, fecha_salida_garantia, estado_garantia, foto_url)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            ''', (reparacion[1], reparacion[2], reparacion[3], reparacion[4], reparacion[5], reparacion[6], reparacion[8], reparacion[9], fecha_salida, 'activa', reparacion[15]))
-            
-        elif nuevo_estado == 'lista':
-            cursor.execute("UPDATE reparaciones SET estado = %s, actualizado_en = %s WHERE codigo = %s", 
-                          (nuevo_estado, datetime.datetime.now().isoformat(), codigo))
-            mensaje = f"""✅ *TICKET LISTO - ELVIN TECHNOLOGY*
+        if estado_actual == 'lista':
+            return {"success": False, "error": "El ticket ya está marcado como LISTO"}
+        
+        cursor.execute("UPDATE reparaciones SET estado = %s, actualizado_en = %s WHERE codigo = %s", 
+                      ("lista", datetime.datetime.now().isoformat(), codigo))
+        
+        mensaje = f"""✅ *TICKET LISTO - ELVIN TECHNOLOGY*
 
 📌 *Código:* {reparacion[1]}
 👤 *Cliente:* {reparacion[2]}
@@ -610,14 +576,14 @@ def cambiar_estado_desde_consulta():
 📍 *Horario de retiro:* Lunes a Viernes de 9am a 4pm
 
 ✅ *REENVÍA ESTE MENSAJE AL CLIENTE*"""
-            enviar_whatsapp(mensaje)
-            enviar_telegram(mensaje)
+        enviar_whatsapp(mensaje)
+        enviar_telegram(mensaje)
         
         conn.commit()
         cursor.close()
         conn.close()
         
-        return {"success": True, "nuevo_estado": nuevo_estado}
+        return {"success": True, "nuevo_estado": "lista"}
         
     except Exception as e:
         return {"success": False, "error": str(e)}
