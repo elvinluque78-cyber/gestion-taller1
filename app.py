@@ -74,7 +74,7 @@ API_SECRET = "kxsPgE73Eu59VQ03qSCvWCeaHw4"
 def enviar_whatsapp(mensaje):
     try:
         TWILIO_SID = "AC1eee15ecfd80fc2a2eadaaf00326ea0b"
-        TWILIO_AUTH = "e0149c3decfd1a4afa945fdf1ee6f1bd"
+        TWILIO_AUTH = "a83b10d7ec8e3669aef674903fe0432b"
         TWILIO_FROM = "whatsapp:+14155238886"
         TECNICO_TO = "whatsapp:+584123697532"
         
