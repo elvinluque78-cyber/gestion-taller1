@@ -324,6 +324,122 @@ GARANTIAS_HTML = '''
 </html>
 '''
 
+CONSULTA_HTML = '''
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Consultar Ticket</title>
+    <style>
+        body { font-family: Arial; background: #f0f2f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .container { background: white; padding: 40px; border-radius: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; max-width: 400px; width: 90%; }
+        input { width: 100%; padding: 14px; margin: 20px 0; border-radius: 12px; border: 1px solid #ddd; font-size: 16px; }
+        button { background: #007bff; color: white; padding: 14px; border: none; border-radius: 50px; cursor: pointer; width: 100%; font-size: 16px; }
+        button:hover { background: #0056b3; }
+        .btn-volver { display: block; margin-top: 15px; color: #666; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>🔍 Consultar Ticket</h2>
+        <form method="POST">
+            <input type="text" name="codigo" placeholder="Ejemplo: E-001" required>
+            <button type="submit">Buscar</button>
+        </form>
+        <a href="/" class="btn-volver">← Volver al inicio</a>
+    </div>
+</body>
+</html>
+'''
+
+DETALLE_TICKET = '''
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Ticket {{ reparacion[1] }}</title>
+    <style>
+        body { font-family: Arial; background: #f0f2f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
+        .container { background: white; padding: 30px; border-radius: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-width: 600px; width: 100%; }
+        h2 { color: #007bff; margin-top: 0; }
+        .info { margin: 10px 0; }
+        .label { font-weight: bold; display: inline-block; width: 120px; }
+        .foto { margin-top: 20px; text-align: center; }
+        .foto img { max-width: 100%; border-radius: 10px; }
+        .btn { display: inline-block; background: #28a745; color: white; padding: 10px 20px; text-decoration: none; border-radius: 50px; margin-top: 20px; margin-right: 10px; border: none; cursor: pointer; font-size: 14px; }
+        .btn-listo { background: #28a745; }
+        .btn-entregado { background: #007bff; }
+        .btn-volver { background: #6c757d; display: inline-block; padding: 10px 20px; text-decoration: none; color: white; border-radius: 50px; margin-top: 20px; }
+        .btn-group { margin-top: 20px; }
+        .mensaje { padding: 10px; border-radius: 10px; margin-bottom: 20px; }
+        .mensaje-exito { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .mensaje-error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        {% if mensaje %}
+        <div class="mensaje mensaje-exito">{{ mensaje }}</div>
+        {% endif %}
+        {% if error %}
+        <div class="mensaje mensaje-error">{{ error }}</div>
+        {% endif %}
+        
+        <h2>🔍 Ticket {{ reparacion[1] }}</h2>
+        <div class="info"><span class="label">Cliente:</span> {{ reparacion[2] }}</div>
+        <div class="info"><span class="label">Teléfono:</span> {{ reparacion[3] }}</div>
+        <div class="info"><span class="label">Equipo:</span> {{ reparacion[4] }} {{ reparacion[5] }}</div>
+        <div class="info"><span class="label">Falla:</span> {{ reparacion[6] }}</div>
+        <div class="info"><span class="label">Estado actual:</span> <strong id="estado_actual">{{ reparacion[11].replace('_', ' ') }}</strong></div>
+        <div class="info"><span class="label">Ingreso:</span> {{ reparacion[9][:10] if reparacion[9] else '-' }}</div>
+        {% if reparacion[10] %}
+        <div class="info"><span class="label">Salida:</span> {{ reparacion[10][:10] }}</div>
+        {% endif %}
+        {% if reparacion[15] %}
+        <div class="foto"><img src="{{ reparacion[15] }}" alt="Foto del equipo"></div>
+        {% endif %}
+        
+        <div class="btn-group">
+            <button class="btn btn-listo" onclick="cambiarEstado('lista')">✅ Marcar como LISTO</button>
+            <button class="btn btn-entregado" onclick="cambiarEstado('entregado')">🎉 Marcar como ENTREGADO</button>
+            <a href="/consulta" class="btn-volver">← Nueva consulta</a>
+        </div>
+    </div>
+    
+    <script>
+        function cambiarEstado(nuevoEstado) {
+            if (!confirm('¿Estás seguro de marcar este ticket como ' + nuevoEstado.toUpperCase() + '?')) {
+                return;
+            }
+            
+            fetch('/cambiar_estado_desde_consulta', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'codigo={{ reparacion[1] }}&estado=' + nuevoEstado
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('estado_actual').innerText = nuevoEstado.replace('_', ' ');
+                    alert('✅ Ticket actualizado a ' + nuevoEstado);
+                    location.reload();
+                } else {
+                    alert('❌ Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                alert('❌ Error al comunicarse con el servidor');
+            });
+        }
+    </script>
+</body>
+</html>
+'''
+
 @app.route("/", methods=["GET", "POST"])
 def nueva():
     if request.method == "POST":
@@ -351,7 +467,6 @@ def nueva():
         conn.commit()
         conn.close()
         
-        # Mensaje WhatsApp completo para NUEVO TICKET
         mensaje_whatsapp = f"""🧾 *NUEVO TICKET - ELVIN TECHNOLOGY*
 
 📌 *Código:* {codigo}
@@ -367,6 +482,7 @@ def nueva():
 
 ✅ *REENVÍA ESTE MENSAJE AL CLIENTE*"""
         enviar_whatsapp(mensaje_whatsapp)
+        enviar_telegram(mensaje_whatsapp)
         
         return redirect(url_for('nueva'))
     return render_template_string(FORMULARIO)
@@ -422,70 +538,89 @@ def consulta():
             '''
     return render_template_string(CONSULTA_HTML)
 
-CONSULTA_HTML = '''
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Consultar Ticket</title>
-    <style>
-        body { font-family: Arial; background: #f0f2f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .container { background: white; padding: 40px; border-radius: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; max-width: 400px; width: 90%; }
-        input { width: 100%; padding: 14px; margin: 20px 0; border-radius: 12px; border: 1px solid #ddd; font-size: 16px; }
-        button { background: #007bff; color: white; padding: 14px; border: none; border-radius: 50px; cursor: pointer; width: 100%; font-size: 16px; }
-        button:hover { background: #0056b3; }
-        .btn-volver { display: block; margin-top: 15px; color: #666; text-decoration: none; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h2>🔍 Consultar Ticket</h2>
-        <form method="POST">
-            <input type="text" name="codigo" placeholder="Ejemplo: E-001" required>
-            <button type="submit">Buscar</button>
-        </form>
-        <a href="/" class="btn-volver">← Volver al inicio</a>
-    </div>
-</body>
-</html>
-'''
+@app.route("/cambiar_estado_desde_consulta", methods=["POST"])
+def cambiar_estado_desde_consulta():
+    codigo = request.form.get("codigo", "").strip().upper()
+    nuevo_estado = request.form.get("estado", "").lower()
+    
+    if not codigo or not nuevo_estado:
+        return {"success": False, "error": "Faltan datos"}
+    
+    if nuevo_estado not in ['lista', 'entregado']:
+        return {"success": False, "error": "Estado no permitido"}
+    
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT * FROM reparaciones WHERE codigo = %s", (codigo,))
+        reparacion = cursor.fetchone()
+        
+        if not reparacion:
+            return {"success": False, "error": "Ticket no encontrado"}
+        
+        estado_actual = reparacion[11]
+        
+        if nuevo_estado == 'entregado':
+            fecha_salida = datetime.datetime.now().isoformat()
+            cursor.execute("UPDATE reparaciones SET estado = %s, fecha_salida = %s, actualizado_en = %s WHERE codigo = %s", 
+                          (nuevo_estado, fecha_salida, datetime.datetime.now().isoformat(), codigo))
+            
+            fecha_garantia = (datetime.datetime.now() + datetime.timedelta(days=60)).strftime("%d/%m/%Y")
+            mensaje = f"""🎉 *TICKET ENTREGADO - ELVIN TECHNOLOGY*
 
-DETALLE_TICKET = '''
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Ticket {{ reparacion[1] }}</title>
-    <style>
-        body { font-family: Arial; background: #f0f2f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
-        .container { background: white; padding: 30px; border-radius: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-width: 600px; width: 100%; }
-        h2 { color: #007bff; margin-top: 0; }
-        .info { margin: 10px 0; }
-        .label { font-weight: bold; display: inline-block; width: 120px; }
-        .foto { margin-top: 20px; text-align: center; }
-        .foto img { max-width: 100%; border-radius: 10px; }
-        .volver { display: inline-block; margin-top: 20px; color: #007bff; text-decoration: none; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h2>🔍 Ticket {{ reparacion[1] }}</h2>
-        <div class="info"><span class="label">Cliente:</span> {{ reparacion[2] }}</div>
-        <div class="info"><span class="label">Teléfono:</span> {{ reparacion[3] }}</div>
-        <div class="info"><span class="label">Equipo:</span> {{ reparacion[4] }} {{ reparacion[5] }}</div>
-        <div class="info"><span class="label">Falla:</span> {{ reparacion[6] }}</div>
-        <div class="info"><span class="label">Estado:</span> {{ reparacion[11].replace('_', ' ') }}</div>
-        <div class="info"><span class="label">Ingreso:</span> {{ reparacion[9][:10] if reparacion[9] else '-' }}</div>
-        {% if reparacion[15] %}
-        <div class="foto"><img src="{{ reparacion[15] }}" alt="Foto del equipo"></div>
-        {% endif %}
-        <a href="/consulta" class="volver">← Nueva consulta</a>
-    </div>
-</body>
-</html>
-'''
+📌 *Código:* {reparacion[1]}
+👤 *Cliente:* {reparacion[2]}
+📞 *Teléfono:* {reparacion[3]}
+🔧 *Equipo:* {reparacion[4]} {reparacion[5] if reparacion[5] else ''}
+⚠️ *Falla:* {reparacion[6]}
+💰 *Presupuesto:* ${reparacion[7] if reparacion[7] else '0'}
+👨‍🔧 *Técnico:* {reparacion[8]}
+📅 *Fecha ingreso:* {reparacion[9][:10] if reparacion[9] else '-'}
+📅 *Fecha entrega:* {fecha_salida[:10]}
+
+🛡️ *GARANTÍA:* 2 meses
+📅 *Vence:* {fecha_garantia}
+
+✨ *Gracias por confiar en Elvin Technology*
+
+✅ *REENVÍA ESTE MENSAJE AL CLIENTE*"""
+            enviar_whatsapp(mensaje)
+            enviar_telegram(mensaje)
+            
+            # Insertar en garantías
+            cursor.execute('''
+                INSERT INTO garantias (codigo, cliente_nombre, cliente_telefono, equipo, marca, falla_original, tecnico, fecha_entrada_garantia, fecha_salida_garantia, estado_garantia, foto_url)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ''', (reparacion[1], reparacion[2], reparacion[3], reparacion[4], reparacion[5], reparacion[6], reparacion[8], reparacion[9], fecha_salida, 'activa', reparacion[15]))
+            
+        elif nuevo_estado == 'lista':
+            cursor.execute("UPDATE reparaciones SET estado = %s, actualizado_en = %s WHERE codigo = %s", 
+                          (nuevo_estado, datetime.datetime.now().isoformat(), codigo))
+            mensaje = f"""✅ *TICKET LISTO - ELVIN TECHNOLOGY*
+
+📌 *Código:* {reparacion[1]}
+👤 *Cliente:* {reparacion[2]}
+📞 *Teléfono:* {reparacion[3]}
+🔧 *Equipo:* {reparacion[4]} {reparacion[5] if reparacion[5] else ''}
+⚠️ *Falla:* {reparacion[6]}
+👨‍🔧 *Técnico:* {reparacion[8]}
+📅 *Fecha ingreso:* {reparacion[9][:10] if reparacion[9] else '-'}
+
+📍 *Horario de retiro:* Lunes a Viernes de 9am a 4pm
+
+✅ *REENVÍA ESTE MENSAJE AL CLIENTE*"""
+            enviar_whatsapp(mensaje)
+            enviar_telegram(mensaje)
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        return {"success": True, "nuevo_estado": nuevo_estado}
+        
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 @app.route("/editar/<int:id>", methods=["GET", "POST"])
 @requiere_auth
@@ -522,7 +657,6 @@ def editar(id):
         ''', (cliente_nombre, cliente_telefono, equipo, marca, falla, tecnico, nuevo_estado, 
               datetime.datetime.now().isoformat(), id))
         
-        # Mensaje WhatsApp completo para TICKET LISTO
         if nuevo_estado == 'lista' and reparacion[11] != 'lista':
             mensaje = f"""✅ *TICKET LISTO - ELVIN TECHNOLOGY*
 
@@ -540,7 +674,6 @@ def editar(id):
             enviar_whatsapp(mensaje)
             enviar_telegram(mensaje)
         
-        # Mensaje WhatsApp completo para TICKET ENTREGADO con garantía
         if nuevo_estado == 'entregado' and reparacion[11] != 'entregado':
             fecha_salida = datetime.datetime.now().isoformat()
             cursor.execute("UPDATE reparaciones SET fecha_salida = %s WHERE id = %s", (fecha_salida, id))
