@@ -71,13 +71,13 @@ CLOUD_NAME = "drpmg1lso"
 API_KEY = "519922232242146"
 API_SECRET = "kxsPgE73Eu59VQ03qSCvWCeaHw4"
 
-TWILIO_SID = "AC1eee15ecfd80fc2a2eadaaf00326ea0b"
-TWILIO_AUTH = "e0149c3decfd1a4afa945fdf1ee6f1bd"
-TWILIO_FROM = "whatsapp:+14155238886"
-TECNICO_TO = "whatsapp:+584123697532"
-
 def enviar_whatsapp(mensaje):
     try:
+        TWILIO_SID = "AC1eee15ecfd80fc2a2eadaaf00326ea0b"
+        TWILIO_AUTH = "e0149c3decfd1a4afa945fdf1ee6f1bd"
+        TWILIO_FROM = "whatsapp:+14155238886"
+        TECNICO_TO = "whatsapp:+584123697532"
+        
         url = f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_SID}/Messages.json"
         data = {"From": TWILIO_FROM, "To": TECNICO_TO, "Body": mensaje}
         response = requests.post(url, data=data, auth=(TWILIO_SID, TWILIO_AUTH), timeout=10)
@@ -478,7 +478,6 @@ def nueva():
 
 ✅ *REENVÍA ESTE MENSAJE AL CLIENTE*"""
         enviar_whatsapp(mensaje_whatsapp)
-        enviar_telegram(mensaje_whatsapp)
         
         return redirect(url_for('nueva'))
     return render_template_string(FORMULARIO)
@@ -577,7 +576,6 @@ def cambiar_estado_desde_consulta():
 
 ✅ *REENVÍA ESTE MENSAJE AL CLIENTE*"""
         enviar_whatsapp(mensaje)
-        enviar_telegram(mensaje)
         
         conn.commit()
         cursor.close()
@@ -638,7 +636,6 @@ def editar(id):
 
 ✅ *REENVÍA ESTE MENSAJE AL CLIENTE*"""
             enviar_whatsapp(mensaje)
-            enviar_telegram(mensaje)
         
         if nuevo_estado == 'entregado' and reparacion[11] != 'entregado':
             fecha_salida = datetime.datetime.now().isoformat()
@@ -663,7 +660,6 @@ def editar(id):
 
 ✅ *REENVÍA ESTE MENSAJE AL CLIENTE*"""
             enviar_whatsapp(mensaje)
-            enviar_telegram(mensaje)
             
             cursor.execute('''
                 INSERT INTO garantias (codigo, cliente_nombre, cliente_telefono, equipo, marca, falla_original, tecnico, fecha_entrada_garantia, fecha_salida_garantia, estado_garantia, foto_url)
